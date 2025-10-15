@@ -1,0 +1,258 @@
+/* Variables globales */
+:root {
+    --primary-color: #e74c3c;
+    --secondary-color: #2c3e50;
+    --background-color: #ecf0f1;
+    --text-color: #2c3e50;
+    --card-background: #ffffff;
+    --error-color: #e74c3c;
+    --success-color: #27ae60;
+}
+
+/* Reset et styles de base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+h1 {
+    color: var(--primary-color);
+    font-size: 3rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+}
+
+.subtitle {
+    color: var(--secondary-color);
+    font-size: 1.2rem;
+    font-style: italic;
+}
+
+h2 {
+    color: var(--secondary-color);
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 10px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Styles du formulaire */
+#login-container {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 5px rgba(231, 76, 60, 0.5);
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #c0392b;
+}
+
+.btn-secondary {
+    background-color: #7f8c8d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #6c7a7d;
+}
+
+.btn-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c0392b;
+}
+
+.error-message {
+    color: var(--error-color);
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+/* Styles de l'interface joueur */
+#player-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+}
+
+.player-info,
+.target-info {
+    flex: 1;
+    min-width: 300px;
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.profile-card,
+.target-card {
+    margin-bottom: 20px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.profile-detail,
+.target-detail,
+.action-detail {
+    margin-bottom: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #ddd;
+}
+
+.label {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.action {
+    color: var(--primary-color);
+    font-weight: bold;
+    font-style: italic;
+    display: block;
+    margin-top: 5px;
+    font-size: 1.2rem;
+}
+
+#kill-btn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 15px;
+    font-size: 18px;
+    text-transform: uppercase;
+}
+
+#logout-btn {
+    width: 100%;
+    margin-top: 20px;
+}
+
+/* Notification après un kill */
+.notification {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.notification-content {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    text-align: center;
+}
+
+.notification h3 {
+    color: var(--primary-color);
+    margin-bottom: 20px;
+}
+
+#close-notification {
+    margin-top: 20px;
+}
+
+/* Media queries pour la responsivité */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .player-info, 
+    .target-info {
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+    
+    h2 {
+        font-size: 1.2rem;
+    }
+}
