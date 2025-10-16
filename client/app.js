@@ -134,16 +134,32 @@ closeNotification.addEventListener('click', closeKillNotification);
  * Vérifie si l'utilisateur est déjà connecté
  */
 function checkLoggedIn() {
-    fetch('/api/me')
+    console.log('Vérification de la connexion...');
+    // Ajouter un timestamp pour éviter le cache
+    const timestamp = new Date().getTime();
+    fetch(`/api/me?_=${timestamp}`, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        },
+        credentials: 'same-origin' // S'assurer que les cookies sont envoyés
+    })
     .then(response => {
+        console.log('Réponse reçue:', response.status);
         if (response.ok) {
             response.json().then(data => {
+                console.log('Données reçues:', data);
                 if (data && data.success) {
                     showPlayerInterface(data);
                 } else {
                     console.warn('Réponse reçue mais format invalide:', data);
                     showLoginForm();
-                    displayError('Erreur du serveur: format de réponse invalide');
+                    if (data && data.message) {
+                        displayError(`Erreur: ${data.message}`);
+                    } else {
+                        displayError('Erreur du serveur: format de réponse invalide');
+                    }
                 }
             }).catch(error => {
                 console.error('Erreur lors du parsing JSON:', error);
@@ -153,7 +169,15 @@ function checkLoggedIn() {
         } else {
             if (response.status === 401) {
                 // Non connecté, rien à faire, le formulaire de connexion est déjà affiché
+                console.log('Non connecté (401)');
                 showLoginForm();
+                
+                // Essayer de lire le corps de la réponse pour le débogage
+                response.json().catch(() => {}).then(data => {
+                    if (data && data.debug) {
+                        console.log('Informations de débogage:', data.debug);
+                    }
+                });
             } else {
                 showLoginForm();
                 console.error('Erreur lors de la vérification de la connexion:', response.status);
@@ -164,7 +188,7 @@ function checkLoggedIn() {
     .catch(error => {
         console.error('Erreur de connexion au serveur:', error);
         showLoginForm();
-        displayError('Impossible de se connecter au serveur. Veuillez réessayer plus tard.');
+        displayError('Erreur de connexion au serveur. Vérifiez votre connexion internet ou contactez l\'administrateur.');
     });
 }
 
@@ -187,24 +211,43 @@ function handleLogin(e) {
         password: password
     };
     
+    // Afficher un message pendant la connexion
+    displayMessage('Connexion en cours...');
+    
     fetch('/api/login', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
         },
+        credentials: 'same-origin', // S'assurer que les cookies sont envoyés
         body: JSON.stringify(loginData)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Réponse login:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Données login:', data);
         if (data.success) {
+            // Vérifier que le cookie de session est bien défini
+            const hasCookie = document.cookie.includes(';') || document.cookie.length > 0;
+            console.log('Cookie présent après connexion:', hasCookie);
+            
+            // Afficher l'interface utilisateur
             showPlayerInterface(data);
+            
+            // Log des informations de débogage si présentes
+            if (data.debug) {
+                console.log('Informations de débogage:', data.debug);
+            }
         } else {
             displayError(data.message || 'Erreur de connexion');
         }
     })
     .catch(error => {
         console.error('Erreur:', error);
-        displayError('Erreur de connexion au serveur');
+        displayError('Erreur de connexion au serveur. Vérifiez votre connexion internet ou contactez l\'administrateur.');
     });
 }
 
@@ -388,6 +431,15 @@ function updateTargetInfo(target) {
  */
 function displayError(message) {
     loginError.textContent = message;
+    loginError.style.color = 'red';
+}
+
+/**
+ * Affiche un message informatif (non-erreur)
+ */
+function displayMessage(message) {
+    loginError.textContent = message;
+    loginError.style.color = '#007bff'; // Bleu
 }
 
 /**

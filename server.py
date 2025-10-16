@@ -1,29 +1,11 @@
 import os
 import json
-import sys
-import datetime
-import random
+import time
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
 import gspread
 from google.oauth2 import service_account
-
-# Contournements pour la connectivité Google
-try:
-    # Charger le SSL bypass si disponible (pour contourner les problèmes de certificats)
-    if os.path.exists(os.path.join(os.path.dirname(__file__), 'ssl_bypass.py')):
-        print("Chargement du contournement SSL...")
-        import ssl_bypass
-except Exception:
-    # Fallback pour les problèmes SSL
-    try:
-        import ssl
-        if hasattr(ssl, '_create_default_https_context'):
-            ssl._create_default_https_context = ssl._create_unverified_context
-            print("SSL verification désactivée (méthode intégrée)")
-    except Exception:
-        pass
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -37,7 +19,32 @@ app = Flask(__name__, static_folder='client')
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "default_secret_key_for_development")
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # Session d'une heure
+app.config["PERMANENT_SESSION_LIFETIME"] = 3600 * 24 * 7  # Session d'une semaine au lieu d'une heure
+app.config["SESSION_FILE_DIR"] = os.environ.get("SESSION_FILE_DIR", "flask_session")  # Permet de définir un dossier spécifique
+app.config["SESSION_USE_SIGNER"] = True  # Signe les cookies pour une meilleure sécurité
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"  # Cookies sécurisés en production
+app.config["SESSION_COOKIE_HTTPONLY"] = True  # Protection contre les attaques XSS
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  # Protection CSRF
+
+# Créer le répertoire des sessions s'il n'existe pas
+if not os.path.exists(app.config["SESSION_FILE_DIR"]):
+    os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
+    print(f"Répertoire des sessions créé: {app.config['SESSION_FILE_DIR']}")
+
+# Vérifier les permissions du répertoire des sessions
+try:
+    session_dir = app.config["SESSION_FILE_DIR"]
+    if os.path.exists(session_dir):
+        permissions = oct(os.stat(session_dir).st_mode)[-3:]
+        print(f"Permissions du répertoire des sessions: {permissions}")
+        # S'assurer que les permissions sont au moins 755
+        if permissions[0] < '7' or permissions[1] < '5' or permissions[2] < '5':
+            print(f"AVERTISSEMENT: Les permissions du répertoire {session_dir} sont insuffisantes")
+            print(f"Tentative de correction des permissions...")
+            os.chmod(session_dir, 0o755)
+except Exception as e:
+    print(f"Erreur lors de la vérification des permissions du répertoire des sessions: {e}")
+
 Session(app)
 
 # Configuration des colonnes de la Google Sheet
@@ -234,14 +241,43 @@ def initialize_status_column():
 # initialize_status_column()
 
 # Fonction auxiliaire pour obtenir les données d'un joueur par son surnom
+def get_player_from_cache(nickname):
+    """Récupère un joueur depuis le cache local si disponible"""
+    try:
+        if os.path.exists("players_cache.json"):
+            with open("players_cache.json", "r") as cache_file:
+                players_cache = json.load(cache_file)
+                
+            for player in players_cache:
+                if player["nickname"].lower() == nickname.lower():
+                    print(f"[INFO] Joueur '{nickname}' trouvé dans le cache")
+                    return player
+                    
+            print(f"[INFO] Joueur '{nickname}' non trouvé dans le cache")
+        else:
+            print("[INFO] Aucun cache de joueurs disponible")
+            
+        return None
+    except Exception as e:
+        print(f"[ERROR] Erreur lors de la lecture du cache: {str(e)}")
+        return None
+
 def get_player_by_nickname(nickname):
-    sheet = get_sheet_client()
-    data = sheet.get_all_values()
-    
-    # Ignorer la ligne d'en-tête
-    for i, row in enumerate(data[1:], 2):
-        # Comparaison insensible à la casse pour le surnom
-        if len(row) > SHEET_COLUMNS["NICKNAME"] and row[SHEET_COLUMNS["NICKNAME"]].lower() == nickname.lower():
+    try:
+        sheet = get_sheet_client()
+        if sheet is None:
+            print(f"[WARNING] Connexion à Google Sheets impossible, tentative d'utiliser le cache pour '{nickname}'")
+            return get_player_from_cache(nickname)
+            
+        data = sheet.get_all_values()
+        
+        # Ignorer la ligne d'en-tête
+        for i, row in enumerate(data[1:], 2):
+            # Comparaison insensible à la casse pour le surnom
+            if len(row) > SHEET_COLUMNS["NICKNAME"] and row[SHEET_COLUMNS["NICKNAME"]].lower() == nickname.lower():
+    except Exception as e:
+        print(f"[ERROR] Erreur dans get_player_by_nickname: {str(e)}")
+        return get_player_from_cache(nickname)
             player = {
                 "row": i,
                 "nickname": row[SHEET_COLUMNS["NICKNAME"]],
@@ -334,14 +370,27 @@ def login():
     nickname = data.get("nickname")
     password = data.get("password")
     
+    print(f"[DEBUG] /api/login: Tentative de connexion pour '{nickname}'")
+    
     if not nickname or not password:
+        print(f"[DEBUG] /api/login: Données manquantes")
         return jsonify({"success": False, "message": "Surnom et mot de passe requis"}), 400
     
     try:
         # Mode de secours pour l'admin si Google Sheets est inaccessible
         if nickname.lower() == "admin" and password.lower() == "killer2025":
+            print(f"[DEBUG] /api/login: Connexion admin réussie")
+            
+            # Nettoyer la session et définir les nouvelles valeurs
+            session.clear()
             session["nickname"] = "admin"
             session["is_admin"] = True
+            session["auth_time"] = int(time.time())
+            
+            # Vérifier que la session est correctement enregistrée
+            print(f"[DEBUG] /api/login: Session après connexion admin: {dict(session)}")
+            print(f"[DEBUG] /api/login: Session ID: {session.sid if hasattr(session, 'sid') else 'N/A'}")
+            
             return jsonify({
                 "success": True,
                 "player": {
@@ -370,8 +419,13 @@ def login():
     if player["password"].lower() != password.lower():
         return jsonify({"success": False, "message": "Mot de passe incorrect"}), 401
     
-    # Stocker l'ID du joueur dans la session
+    # Nettoyer et stocker l'ID du joueur dans la session
+    session.clear()
     session["nickname"] = nickname
+    session["auth_time"] = int(time.time())
+    
+    print(f"[DEBUG] /api/login: Connexion réussie pour '{nickname}'")
+    print(f"[DEBUG] /api/login: Session après connexion: {dict(session)}")
     
     # Récupérer les informations de la cible
     target_info = None
@@ -420,15 +474,60 @@ def login():
 
 @app.route("/api/me", methods=["GET"])
 def get_me():
+    print(f"[DEBUG] /api/me: Vérification de session. Keys={list(session.keys()) if session else 'Aucune'}")
+    
+    # Vérifier si le cookie de session existe
+    session_cookie = request.cookies.get(app.config.get('SESSION_COOKIE_NAME', 'session'))
+    print(f"[DEBUG] /api/me: Cookie de session présent: {bool(session_cookie)}")
+    
     if "nickname" not in session:
-        return jsonify({"success": False, "message": "Non connecté"}), 401
+        print(f"[DEBUG] /api/me: Utilisateur non connecté. Session: {dict(session) if session else 'vide'}")
+        return jsonify({
+            "success": False, 
+            "message": "Non connecté", 
+            "debug": {
+                "session_keys": list(session.keys()) if session else [],
+                "has_cookie": bool(session_cookie)
+            }
+        }), 401
     
-    player = get_player_by_nickname(session["nickname"])
-    
-    if not player:
-        # Cas où le joueur a été supprimé pendant la session
-        session.clear()
-        return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+    print(f"[DEBUG] /api/me: Recherche du joueur '{session['nickname']}'")
+    try:
+        player = get_player_by_nickname(session["nickname"])
+        
+        if not player:
+            # Cas où le joueur a été supprimé pendant la session
+            print(f"[DEBUG] /api/me: Joueur '{session['nickname']}' non trouvé dans la base de données")
+            session.clear()
+            return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+            
+        print(f"[DEBUG] /api/me: Joueur '{player['nickname']}' trouvé avec succès")
+    except Exception as e:
+        print(f"[ERROR] /api/me: Erreur lors de la récupération du joueur: {str(e)}")
+        
+        # En cas d'erreur avec Google Sheets, on tente de garder l'utilisateur connecté
+        if "nickname" in session and session["nickname"].lower() == "admin":
+            return jsonify({
+                "success": True,
+                "player": {
+                    "nickname": "ADMIN",
+                    "person_photo": "",
+                    "feet_photo": "",
+                    "status": "alive"
+                },
+                "target": {
+                    "nickname": "Mode maintenance",
+                    "person_photo": "",
+                    "feet_photo": "",
+                    "action": "Résoudre les problèmes de connexion à Google Sheets"
+                },
+                "debug": {"error": str(e)}
+            })
+        
+        return jsonify({
+            "success": False, 
+            "message": f"Erreur lors de la récupération des données: {str(e)}"
+        }), 500
     
     # Récupérer les informations de la cible
     target_info = None
@@ -731,43 +830,164 @@ def debug():
 
 def check_google_connectivity():
     """
-    Vérifie simplement la connectivité aux serveurs Google nécessaires pour l'API Sheets
-    Version simplifiée pour la production
+    Vérifie la connectivité aux serveurs Google nécessaires pour l'API Sheets
     """
-    try:
-        import socket
-        
-        # Vérifier uniquement les DNS des domaines Google essentiels
-        domains = ["sheets.googleapis.com", "oauth2.googleapis.com"]
-        
-        for domain in domains:
+    import socket
+    import ssl
+    from urllib.request import urlopen
+    
+    # Domaines Google à vérifier
+    domains = [
+        "sheets.googleapis.com",
+        "oauth2.googleapis.com", 
+        "www.googleapis.com"
+    ]
+    
+    results = {}
+    
+    print("\n=== VÉRIFICATION DE LA CONNECTIVITÉ AUX SERVEURS GOOGLE ===")
+    
+    for domain in domains:
+        try:
+            # Tenter une résolution DNS
             try:
                 ip = socket.gethostbyname(domain)
+                dns_ok = True
                 print(f"✓ DNS pour {domain}: OK ({ip})")
             except socket.gaierror as e:
+                dns_ok = False
                 print(f"✗ DNS pour {domain}: ÉCHEC ({str(e)})")
-                return False
+            
+            # Tenter une connexion HTTPS
+            try:
+                with urlopen(f"https://{domain}/", timeout=10) as response:
+                    https_ok = response.status == 200
+                    print(f"✓ HTTPS pour {domain}: OK (status {response.status})")
+            except Exception as e:
+                https_ok = False
+                print(f"✗ HTTPS pour {domain}: ÉCHEC ({str(e)})")
+                
+            results[domain] = {"dns": dns_ok, "https": https_ok}
+        except Exception as e:
+            print(f"✗ Test pour {domain}: ERREUR GÉNÉRALE ({str(e)})")
+            results[domain] = {"dns": False, "https": False}
+    
+    # Évaluation globale
+    all_ok = all(all(result.values()) for result in results.values())
+    
+    if all_ok:
+        print("\n✓ CONNECTIVITÉ AUX API GOOGLE: OK")
+    else:
+        print("\n✗ PROBLÈMES DE CONNECTIVITÉ DÉTECTÉS!")
+        print("Solutions possibles:")
+        print("1. Vérifiez que votre serveur autorise les connexions sortantes vers les domaines Google")
+        print("2. Contactez votre hébergeur pour autoriser les domaines requis")
+        print("3. Vérifiez la configuration du pare-feu ou proxy du serveur")
         
-        return True
-    except Exception as e:
-        print(f"Erreur lors de la vérification de connectivité: {str(e)}")
-        return False
+    print("==================================================\n")
+    
+    return all_ok
 
-@app.get("/health")
-def health():
-    """Endpoint de vérification de santé pour les moniteurs et load balancers"""
-    sheet = get_sheet_client()
+@app.get("/check-connectivity")
+def api_check_connectivity():
+    """Endpoint pour vérifier la connectivité aux API Google"""
+    result = check_google_connectivity()
+    sheet = None
+    service_file_content = None
+    sheet_data = None
+    
+    try:
+        # Tester la connexion à Google Sheets
+        sheet = get_sheet_client()
+        
+        # Essayer de lire le fichier service_account.json
+        service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")
+        if os.path.exists(service_account_file):
+            with open(service_account_file, 'r') as f:
+                content = f.read()
+                # Masquer les informations sensibles
+                if content:
+                    # Ne renvoyer que quelques infos non sensibles
+                    import json
+                    try:
+                        data = json.loads(content)
+                        service_file_content = {
+                            "type": data.get("type"),
+                            "project_id": data.get("project_id"),
+                            "client_email": data.get("client_email"),
+                            "private_key_exists": bool(data.get("private_key")),
+                            "size": len(content)
+                        }
+                    except:
+                        service_file_content = {"error": "Format JSON invalide", "size": len(content)}
+        
+        # Tester la récupération des données
+        if sheet:
+            try:
+                # Essayer de récupérer les premières lignes
+                values = sheet.get_values(f"A1:C3")
+                if values:
+                    sheet_data = values
+            except Exception as e:
+                sheet_data = {"error": str(e)}
+    except Exception as e:
+        pass
+    
     return jsonify({
-        "status": "ok" if sheet is not None else "degraded",
-        "google_sheets": "ok" if sheet is not None else "error"
+        "connectivity": result,
+        "sheet_client": sheet is not None,
+        "service_account": service_file_content,
+        "sheet_data": sheet_data,
+        "environment": {
+            "working_directory": os.getcwd(),
+            "service_account_file": os.environ.get("SERVICE_ACCOUNT_FILE"),
+            "service_account_exists": os.path.exists(os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")),
+            "sheet_id": os.environ.get("SHEET_ID")
+        }
     })
 
 if __name__ == "__main__":
+    # Vérifier la connectivité avant de démarrer le serveur
+    check_google_connectivity()
+    
     # Vérifier les variables d'environnement essentielles
+    print(f"Working directory: {os.getcwd()}")
     print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE', 'Non défini')}")
     print(f"SHEET_ID: {os.environ.get('SHEET_ID', 'Non défini')}")
     
     # Démarrer le serveur
-    port = int(os.environ.get("PORT", 8080))
-    print(f"Démarrage du serveur sur le port {port}...")
-    app.run(host="0.0.0.0", port=port, debug=True)  # OK: seulement en debug local
+    app.run(host="0.0.0.0", port=5000, debug=True)  # OK: seulement en debug local
+
+@app.get("/health")
+def health():
+    return "ok", 200
+    
+@app.get("/api/session-debug")
+def session_debug():
+    """Endpoint pour déboguer les sessions"""
+    import os
+    
+    # Récupérer des informations sur la session actuelle
+    session_data = {
+        "has_session": bool(session),
+        "session_keys": list(session.keys()) if session else [],
+        "nickname_in_session": "nickname" in session,
+        "nickname_value": session.get("nickname") if "nickname" in session else None,
+        "session_cookie": request.cookies.get(app.config.get('SESSION_COOKIE_NAME', 'session')),
+        "flask_session_dir": {
+            "exists": os.path.exists("flask_session"),
+            "files": os.listdir("flask_session") if os.path.exists("flask_session") else [],
+            "permissions": oct(os.stat("flask_session").st_mode)[-3:] if os.path.exists("flask_session") else "N/A"
+        },
+        "environ": {
+            "request_path": request.path,
+            "request_url": request.url,
+            "request_method": request.method,
+            "http_host": request.environ.get("HTTP_HOST"),
+            "server_name": request.environ.get("SERVER_NAME"),
+            "server_port": request.environ.get("SERVER_PORT"),
+            "wsgi_url_scheme": request.environ.get("wsgi.url_scheme")
+        }
+    }
+    
+    return jsonify(session_data)
