@@ -1,0 +1,16 @@
+[Unit]
+Description=Killer Game Flask Application
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/var/www/killer
+ExecStart=/usr/local/bin/gunicorn -b 0.0.0.0:5000 server:app --workers 3 --timeout 60
+Restart=always
+StandardOutput=file:/var/log/killer.log
+StandardError=file:/var/log/killer.error.log
+Environment="SERVICE_ACCOUNT_FILE=/var/www/killer/service_account.json"
+Environment="SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY"
+
+[Install]
+WantedBy=multi-user.target

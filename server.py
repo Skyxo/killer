@@ -45,19 +45,46 @@ def get_sheet_client():
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")
         
+        print(f"Tentative de connexion avec le fichier: {service_account_file}")
+        print(f"Chemin absolu du fichier: {os.path.abspath(service_account_file)}")
+        
         if not os.path.exists(service_account_file):
             print(f"AVERTISSEMENT: Le fichier {service_account_file} est introuvable.")
+            print(f"Répertoire courant: {os.getcwd()}")
+            print(f"Liste des fichiers dans le répertoire courant: {os.listdir('.')}")
             if os.path.exists("service_account_example.json"):
                 print(f"Conseil: Copiez service_account_example.json vers {service_account_file} "
                       f"et remplissez-le avec vos informations d'identification Google.")
             return None
         
+        print(f"Lecture du fichier de credentials: {service_account_file}")
+        # Tenter de lire le contenu du fichier pour vérifier qu'il est accessible et valide
+        try:
+            with open(service_account_file, 'r') as f:
+                service_account_content = f.read()
+                print(f"Fichier service_account.json lu avec succès ({len(service_account_content)} caractères)")
+        except Exception as file_error:
+            print(f"ERREUR lors de la lecture du fichier {service_account_file}: {str(file_error)}")
+            return None
+            
+        print("Création des credentials...")
         credentials = service_account.Credentials.from_service_account_file(
             service_account_file,
             scopes=scope
         )
+        
+        print("Autorisation avec gspread...")
+        # Augmenter les timeouts pour les environnements avec connexion limitée
+        import socket
+        # Augmenter le timeout socket par défaut à 60 secondes (par défaut: ~20 secondes)
+        socket.setdefaulttimeout(60)
+        
+        # Initialiser le client avec des timeouts plus longs
         client = gspread.authorize(credentials)
+        
+        print("Credentials créées et client autorisé avec succès")
         sheet_id = os.environ.get("SHEET_ID")
+        print(f"ID de la feuille à ouvrir: {sheet_id}")
         if not sheet_id:
             print("AVERTISSEMENT: SHEET_ID manquant dans les variables d'environnement.")
             print("Tentative d'utilisation du premier spreadsheet disponible...")
@@ -80,6 +107,7 @@ def get_sheet_client():
             raise ValueError(f"Erreur lors de l'ouverture du spreadsheet: {str(sheet_error)}. Vérifiez que l'ID est correct et que le service account a les permissions nécessaires.")
     except Exception as e:
         import traceback
+        import socket
         error_msg = str(e)
         
         if "APIError" in error_msg and ("API has not been used" in error_msg or "is disabled" in error_msg):
@@ -92,9 +120,43 @@ def get_sheet_client():
             print("===================================\n")
             print("Le serveur continue de démarrer malgré cette erreur.")
             return None
+        elif "timed out" in error_msg.lower() or isinstance(e, (socket.timeout, socket.error)):
+            print("\n=== AVERTISSEMENT: PROBLÈME DE CONNECTIVITÉ RÉSEAU ===")
+            print("La connexion à l'API Google a échoué en raison d'un problème réseau.")
+            print("Sur certains serveurs, comme Zomro, les connexions sortantes peuvent être limitées.")
+            print("Solutions possibles:")
+            print("1. Vérifiez que votre serveur autorise les connexions sortantes vers les domaines Google")
+            print("2. Contactez votre hébergeur pour autoriser les domaines suivants:")
+            print("   - sheets.googleapis.com")
+            print("   - oauth2.googleapis.com")
+            print("   - www.googleapis.com")
+            print("3. Vérifiez la configuration du pare-feu ou proxy du serveur")
+            print("4. Si vous utilisez un VPN, assurez-vous qu'il ne bloque pas les connexions")
+            print("===================================\n")
+            print("Le serveur continue de démarrer malgré cette erreur, mais les fonctionnalités Google Sheets ne fonctionneront pas.")
+            return None
+        elif "SSLError" in error_msg or "CERTIFICATE_VERIFY_FAILED" in error_msg:
+            print("\n=== AVERTISSEMENT: PROBLÈME DE CERTIFICATS SSL ===")
+            print("La connexion à l'API Google a échoué en raison d'un problème de certificats SSL.")
+            print("Cela peut se produire sur des serveurs avec des configurations SSL personnalisées ou obsolètes.")
+            print("Solutions possibles:")
+            print("1. Mettez à jour les certificats CA du système")
+            print("   Exécutez: sudo update-ca-certificates")
+            print("2. Mettez à jour OpenSSL")
+            print("3. Vérifiez la date système (les certificats expirent si la date est incorrecte)")
+            print("===================================\n")
+            print("Le serveur continue de démarrer malgré cette erreur.")
+            return None
         else:
-            print(f"AVERTISSEMENT: Erreur lors de la connexion à Google Sheets: {error_msg}")
+            print(f"\n=== AVERTISSEMENT: ERREUR LORS DE LA CONNEXION À GOOGLE SHEETS ===")
+            print(f"Type d'erreur: {type(e).__name__}")
+            print(f"Message d'erreur: {error_msg}")
             print(f"Détails de l'erreur: {traceback.format_exc()}")
+            print("Solutions possibles:")
+            print("1. Vérifiez que votre fichier service_account.json est correctement formaté")
+            print("2. Vérifiez que le compte de service a accès au Google Sheet")
+            print("3. Vérifiez que l'API Google Sheets est activée pour ce projet")
+            print("===================================\n")
             print("Le serveur continue de démarrer malgré cette erreur.")
             return None
     except Exception as e:
@@ -648,7 +710,93 @@ def debug():
     except Exception as e:
         return jsonify({"success": False, "message": f"Erreur: {str(e)}"}), 500
 
+def check_google_connectivity():
+    """
+    Vérifie la connectivité aux serveurs Google nécessaires pour l'API Sheets
+    """
+    import socket
+    import ssl
+    from urllib.request import urlopen
+    
+    # Domaines Google à vérifier
+    domains = [
+        "sheets.googleapis.com",
+        "oauth2.googleapis.com", 
+        "www.googleapis.com"
+    ]
+    
+    results = {}
+    
+    print("\n=== VÉRIFICATION DE LA CONNECTIVITÉ AUX SERVEURS GOOGLE ===")
+    
+    for domain in domains:
+        try:
+            # Tenter une résolution DNS
+            try:
+                ip = socket.gethostbyname(domain)
+                dns_ok = True
+                print(f"✓ DNS pour {domain}: OK ({ip})")
+            except socket.gaierror as e:
+                dns_ok = False
+                print(f"✗ DNS pour {domain}: ÉCHEC ({str(e)})")
+            
+            # Tenter une connexion HTTPS
+            try:
+                with urlopen(f"https://{domain}/", timeout=10) as response:
+                    https_ok = response.status == 200
+                    print(f"✓ HTTPS pour {domain}: OK (status {response.status})")
+            except Exception as e:
+                https_ok = False
+                print(f"✗ HTTPS pour {domain}: ÉCHEC ({str(e)})")
+                
+            results[domain] = {"dns": dns_ok, "https": https_ok}
+        except Exception as e:
+            print(f"✗ Test pour {domain}: ERREUR GÉNÉRALE ({str(e)})")
+            results[domain] = {"dns": False, "https": False}
+    
+    # Évaluation globale
+    all_ok = all(all(result.values()) for result in results.values())
+    
+    if all_ok:
+        print("\n✓ CONNECTIVITÉ AUX API GOOGLE: OK")
+    else:
+        print("\n✗ PROBLÈMES DE CONNECTIVITÉ DÉTECTÉS!")
+        print("Solutions possibles:")
+        print("1. Vérifiez que votre serveur autorise les connexions sortantes vers les domaines Google")
+        print("2. Contactez votre hébergeur pour autoriser les domaines requis")
+        print("3. Vérifiez la configuration du pare-feu ou proxy du serveur")
+        
+    print("==================================================\n")
+    
+    return all_ok
+
+@app.get("/check-connectivity")
+def api_check_connectivity():
+    """Endpoint pour vérifier la connectivité aux API Google"""
+    result = check_google_connectivity()
+    sheet = get_sheet_client()
+    
+    return jsonify({
+        "connectivity": result,
+        "sheet_client": sheet is not None,
+        "environment": {
+            "working_directory": os.getcwd(),
+            "service_account_file": os.environ.get("SERVICE_ACCOUNT_FILE"),
+            "service_account_exists": os.path.exists(os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")),
+            "sheet_id": os.environ.get("SHEET_ID")
+        }
+    })
+
 if __name__ == "__main__":
+    # Vérifier la connectivité avant de démarrer le serveur
+    check_google_connectivity()
+    
+    # Vérifier les variables d'environnement essentielles
+    print(f"Working directory: {os.getcwd()}")
+    print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE', 'Non défini')}")
+    print(f"SHEET_ID: {os.environ.get('SHEET_ID', 'Non défini')}")
+    
+    # Démarrer le serveur
     app.run(host="0.0.0.0", port=5000, debug=True)  # OK: seulement en debug local
 
 @app.get("/health")
