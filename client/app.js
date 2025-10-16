@@ -5,9 +5,10 @@ const loginError = document.getElementById('login-error');
 const playerContainer = document.getElementById('player-container');
 const playerNicknameHeader = document.getElementById('player-nickname-header');
 const playerPersonPhoto = document.getElementById('player-person-photo');
-const playerFeetPhoto = document.getElementById('player-feet-photo');
 const playerPersonPhotoContainer = document.getElementById('player-person-photo-container');
-const playerFeetPhotoContainer = document.getElementById('player-feet-photo-container');
+// Compatibilité - ces éléments peuvent ne plus être dans le DOM
+const playerFeetPhoto = document.getElementById('player-feet-photo'); 
+const playerFeetPhotoContainer = null; // N'est plus dans le nouveau design
 const targetNickname = document.getElementById('target-nickname');
 const targetAction = document.getElementById('target-action');
 const targetPersonPhoto = document.getElementById('target-person-photo');
@@ -52,17 +53,34 @@ function playRandomPetSound() {
 
 // Fonction pour ouvrir la modal avec une image
 function openPhotoModal(imageSrc) {
-    modalImage.src = imageSrc;
-    photoModal.classList.remove('hidden');
+    if (!modalImage || !photoModal) {
+        console.error("Les éléments de la modale n'existent pas");
+        return;
+    }
+    
+    if (!imageSrc) {
+        console.error("Source de l'image invalide");
+        return;
+    }
+    
+    try {
+        modalImage.src = imageSrc;
+        photoModal.classList.remove('hidden');
+    } catch (error) {
+        console.error("Erreur lors de l'ouverture de la modale:", error);
+    }
 }
 
 // Fonction pour fermer la modal
 function closePhotoModal() {
-    photoModal.classList.add('hidden');
+    if (photoModal) {
+        photoModal.classList.add('hidden');
+    }
 }
 
 // Vérifier si l'utilisateur est connecté au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
+    // Vérifier si l'utilisateur est connecté
     checkLoggedIn();
     
     // Ajouter l'événement de clic sur le logo U56
@@ -72,18 +90,37 @@ document.addEventListener('DOMContentLoaded', () => {
         logo.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
     }
     
-    // Configurer les événements pour la modale des photos
-    playerPersonPhoto.addEventListener('click', () => openPhotoModal(playerPersonPhoto.src));
-    targetPersonPhoto.addEventListener('click', () => openPhotoModal(targetPersonPhoto.src));
-    targetFeetPhoto.addEventListener('click', () => openPhotoModal(targetFeetPhoto.src));
+    // Configurer les événements pour la modale des photos avec vérifications
+    if (playerPersonPhoto) {
+        playerPersonPhoto.addEventListener('click', () => {
+            if (playerPersonPhoto.src) openPhotoModal(playerPersonPhoto.src);
+        });
+    }
+    
+    if (targetPersonPhoto) {
+        targetPersonPhoto.addEventListener('click', () => {
+            if (targetPersonPhoto.src) openPhotoModal(targetPersonPhoto.src);
+        });
+    }
+    
+    if (targetFeetPhoto) {
+        targetFeetPhoto.addEventListener('click', () => {
+            if (targetFeetPhoto.src) openPhotoModal(targetFeetPhoto.src);
+        });
+    }
     
     // Fermer la modale
-    closeModal.addEventListener('click', closePhotoModal);
-    photoModal.addEventListener('click', (event) => {
-        if (event.target === photoModal) {
-            closePhotoModal();
-        }
-    });
+    if (closeModal) {
+        closeModal.addEventListener('click', closePhotoModal);
+    }
+    
+    if (photoModal) {
+        photoModal.addEventListener('click', (event) => {
+            if (event.target === photoModal) {
+                closePhotoModal();
+            }
+        });
+    }
 });
 
 // Event Listeners
@@ -98,23 +135,37 @@ closeNotification.addEventListener('click', closeKillNotification);
  */
 function checkLoggedIn() {
     fetch('/api/me')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Non connecté');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                showPlayerInterface(data);
+    .then(response => {
+        if (response.ok) {
+            response.json().then(data => {
+                if (data && data.success) {
+                    showPlayerInterface(data);
+                } else {
+                    console.warn('Réponse reçue mais format invalide:', data);
+                    showLoginForm();
+                    displayError('Erreur du serveur: format de réponse invalide');
+                }
+            }).catch(error => {
+                console.error('Erreur lors du parsing JSON:', error);
+                showLoginForm();
+                displayError('Erreur du serveur: impossible de lire la réponse');
+            });
+        } else {
+            if (response.status === 401) {
+                // Non connecté, rien à faire, le formulaire de connexion est déjà affiché
+                showLoginForm();
             } else {
                 showLoginForm();
+                console.error('Erreur lors de la vérification de la connexion:', response.status);
+                displayError(`Erreur du serveur: ${response.status}`);
             }
-        })
-        .catch(() => {
-            // Si erreur, montrer le formulaire de connexion
-            showLoginForm();
-        });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur de connexion au serveur:', error);
+        showLoginForm();
+        displayError('Impossible de se connecter au serveur. Veuillez réessayer plus tard.');
+    });
 }
 
 /**
@@ -192,56 +243,84 @@ function showLoginForm() {
  * Affiche l'interface du joueur avec ses informations et sa cible
  */
 function showPlayerInterface(data) {
+    // Vérifier si les données sont valides
+    if (!data || !data.player) {
+        console.error("Données de joueur invalides", data);
+        displayError("Erreur: Impossible de récupérer les données du joueur");
+        return;
+    }
+    
     loginContainer.classList.add('hidden');
     playerContainer.classList.remove('hidden');
     
     // Informations du joueur
-    playerNicknameHeader.textContent = data.player.nickname;
+    if (playerNicknameHeader) {
+        playerNicknameHeader.textContent = data.player.nickname || "Joueur";
+    }
     
     // Gérer l'état du joueur (mort, vivant, abandonné)
     if (data.player.status && data.player.status.toLowerCase() === "dead") {
         // Le joueur est mort, désactiver les boutons
-        killedBtn.disabled = true;
-        giveUpBtn.disabled = true;
+        if (killedBtn) killedBtn.disabled = true;
+        if (giveUpBtn) giveUpBtn.disabled = true;
         playerContainer.classList.add('player-dead');
     } else if (data.player.status && data.player.status.toLowerCase() === "gaveup") {
         // Le joueur a abandonné, désactiver les boutons
-        killedBtn.disabled = true;
-        giveUpBtn.disabled = true;
+        if (killedBtn) killedBtn.disabled = true;
+        if (giveUpBtn) giveUpBtn.disabled = true;
         playerContainer.classList.add('player-gave-up');
     } else {
         // Le joueur est vivant, activer les boutons
-        killedBtn.disabled = false;
-        giveUpBtn.disabled = false;
+        if (killedBtn) killedBtn.disabled = false;
+        if (giveUpBtn) giveUpBtn.disabled = false;
         playerContainer.classList.remove('player-dead');
         playerContainer.classList.remove('player-gave-up');
     }
     
     // Photos du joueur
-    if (data.player.person_photo) {
-        // Utiliser le format d'intégration d'image Google Drive
-        playerPersonPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.person_photo}&sz=w500`;
-        playerPersonPhotoContainer.classList.remove('hidden');
+    if (playerPersonPhoto && data.player.person_photo) {
+        try {
+            // Utiliser le format d'intégration d'image Google Drive
+            playerPersonPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.person_photo}&sz=w500`;
+            if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.remove('hidden');
+        } catch (error) {
+            console.error("Erreur lors du chargement de la photo du joueur:", error);
+            if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.add('hidden');
+        }
     } else {
-        playerPersonPhotoContainer.classList.add('hidden');
+        if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.add('hidden');
     }
     
-    if (data.player.feet_photo) {
-        // Utiliser le format d'intégration d'image Google Drive
-        playerFeetPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.feet_photo}&sz=w500`;
-        playerFeetPhotoContainer.classList.remove('hidden');
-    } else {
-        playerFeetPhotoContainer.classList.add('hidden');
+    // Les photos de pieds du joueur principal ne sont plus affichées dans le nouveau design
+    // Le code est conservé pour la compatibilité avec les anciennes versions
+    try {
+        if (playerFeetPhoto && data.player.feet_photo) {
+            playerFeetPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.feet_photo}&sz=w500`;
+        }
+    } catch (error) {
+        console.error("Photo des pieds ignorée:", error);
     }
     
     // Informations de la cible
     if (data.target) {
-        updateTargetInfo(data.target);
-        targetCard.classList.remove('hidden');
-        noTargetMessage.classList.add('hidden');
+        try {
+            updateTargetInfo(data.target);
+            if (targetCard) targetCard.classList.remove('hidden');
+            if (noTargetMessage) noTargetMessage.classList.add('hidden');
+        } catch (error) {
+            console.error("Erreur lors de la mise à jour des informations de la cible:", error);
+            if (noTargetMessage) {
+                noTargetMessage.textContent = "Erreur lors du chargement des informations de la cible.";
+                noTargetMessage.classList.remove('hidden');
+            }
+            if (targetCard) targetCard.classList.add('hidden');
+        }
     } else {
-        targetCard.classList.add('hidden');
-        noTargetMessage.classList.remove('hidden');
+        if (targetCard) targetCard.classList.add('hidden');
+        if (noTargetMessage) {
+            noTargetMessage.textContent = "Vous n'avez pas de cible active. Le jeu est peut-être terminé ou vous êtes le dernier survivant !";
+            noTargetMessage.classList.remove('hidden');
+        }
     }
 }
 
@@ -249,24 +328,58 @@ function showPlayerInterface(data) {
  * Met à jour les informations de la cible dans l'interface
  */
 function updateTargetInfo(target) {
-    targetNickname.textContent = target.nickname;
-    targetAction.textContent = target.action;
-    
-    // Photos de la cible
-    if (target.person_photo) {
-        // Utiliser le format d'intégration d'image Google Drive
-        targetPersonPhoto.src = `https://drive.google.com/thumbnail?id=${target.person_photo}&sz=w500`;
-        targetPersonPhotoContainer.classList.remove('hidden');
-    } else {
-        targetPersonPhotoContainer.classList.add('hidden');
+    // Vérifier si les éléments existent avant de les modifier
+    if (!target) {
+        console.error("Données de cible invalides");
+        return;
     }
     
-    if (target.feet_photo) {
-        // Utiliser le format d'intégration d'image Google Drive
-        targetFeetPhoto.src = `https://drive.google.com/thumbnail?id=${target.feet_photo}&sz=w500`;
-        targetFeetPhotoContainer.classList.remove('hidden');
+    if (targetNickname && target.nickname) {
+        targetNickname.textContent = target.nickname;
+    }
+    
+    if (targetAction && target.action) {
+        targetAction.textContent = target.action;
+    }
+    
+    // Photos de la cible
+    if (targetPersonPhoto && target.person_photo) {
+        try {
+            // Vérifier si l'ID est valide (au moins 10 caractères)
+            if (target.person_photo && target.person_photo.length > 10) {
+                // Utiliser le format d'intégration d'image Google Drive
+                targetPersonPhoto.src = `https://drive.google.com/thumbnail?id=${target.person_photo}&sz=w500`;
+                if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.remove('hidden');
+            } else {
+                console.warn("ID de photo invalide:", target.person_photo);
+                targetPersonPhoto.src = ""; // Image vide
+                if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error("Erreur lors du chargement de la photo de la cible:", error);
+            if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.add('hidden');
+        }
     } else {
-        targetFeetPhotoContainer.classList.add('hidden');
+        if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.add('hidden');
+    }
+    
+    if (targetFeetPhoto && target.feet_photo) {
+        try {
+            // Vérifier si l'ID est valide (au moins 10 caractères)
+            if (target.feet_photo && target.feet_photo.length > 10) {
+                // Utiliser le format d'intégration d'image Google Drive
+                targetFeetPhoto.src = `https://drive.google.com/thumbnail?id=${target.feet_photo}&sz=w500`;
+                if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.remove('hidden');
+            } else {
+                console.warn("ID de photo de pieds invalide:", target.feet_photo);
+                if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
+            }
+        } catch (error) {
+            console.error("Erreur lors du chargement de la photo des pieds de la cible:", error);
+            if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
+        }
+    } else {
+        if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
     }
 }
 
