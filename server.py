@@ -1,30 +1,29 @@
 import os
 import json
 import sys
+import datetime
+import random
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
 import gspread
 from google.oauth2 import service_account
 
-# Chargement des contournements pare-feu et SSL
+# Contournements pour la connectivité Google
 try:
-    # Essayer de charger le contournement de pare-feu en premier
-    if os.path.exists(os.path.join(os.path.dirname(__file__), 'firewall_bypass.py')):
-        print("Chargement du contournement pare-feu...")
-        sys.path.insert(0, os.path.dirname(__file__))
-        import firewall_bypass
-except Exception as e:
-    print(f"Remarque: Contournement pare-feu non chargé: {str(e)}")
-
-# Tenter de charger la configuration proxy si elle existe
-try:
-    if os.path.exists(os.path.join(os.path.dirname(__file__), 'proxy_config.py')):
-        print("Chargement de la configuration proxy...")
-        sys.path.insert(0, os.path.dirname(__file__))
-        import proxy_config
-except Exception as e:
-    print(f"Remarque: Configuration proxy non chargée: {str(e)}")
+    # Charger le SSL bypass si disponible (pour contourner les problèmes de certificats)
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'ssl_bypass.py')):
+        print("Chargement du contournement SSL...")
+        import ssl_bypass
+except Exception:
+    # Fallback pour les problèmes SSL
+    try:
+        import ssl
+        if hasattr(ssl, '_create_default_https_context'):
+            ssl._create_default_https_context = ssl._create_unverified_context
+            print("SSL verification désactivée (méthode intégrée)")
+    except Exception:
+        pass
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -732,113 +731,43 @@ def debug():
 
 def check_google_connectivity():
     """
-    Vérifie la connectivité aux serveurs Google nécessaires pour l'API Sheets
+    Vérifie simplement la connectivité aux serveurs Google nécessaires pour l'API Sheets
+    Version simplifiée pour la production
     """
-    import socket
-    import ssl
-    import requests
-    from urllib.request import Request, urlopen
-    import json
-    
-    # Endpoints d'API Google à vérifier (URLs valides pour tester)
-    api_endpoints = {
-        "sheets.googleapis.com": "https://sheets.googleapis.com/$discovery/rest?version=v4",
-        "oauth2.googleapis.com": "https://oauth2.googleapis.com/token",
-        "www.googleapis.com": "https://www.googleapis.com/discovery/v1/apis"
-    }
-    
-    results = {}
-    
-    print("\n=== VÉRIFICATION DE LA CONNECTIVITÉ AUX SERVEURS GOOGLE ===")
-    
-    for domain, url in api_endpoints.items():
-        try:
-            # Tenter une résolution DNS
+    try:
+        import socket
+        
+        # Vérifier uniquement les DNS des domaines Google essentiels
+        domains = ["sheets.googleapis.com", "oauth2.googleapis.com"]
+        
+        for domain in domains:
             try:
                 ip = socket.gethostbyname(domain)
-                dns_ok = True
                 print(f"✓ DNS pour {domain}: OK ({ip})")
             except socket.gaierror as e:
-                dns_ok = False
                 print(f"✗ DNS pour {domain}: ÉCHEC ({str(e)})")
-            
-            # Tenter une connexion HTTPS avec une requête GET valide
-            try:
-                # Utiliser requests au lieu de urllib pour plus de robustesse
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(url, headers=headers, timeout=15, verify=True)
-                # 2xx ou 3xx sont des codes réussis
-                https_ok = 200 <= response.status_code < 400
-                print(f"✓ HTTPS pour {domain}: OK (status {response.status_code})")
-            except requests.exceptions.SSLError as e:
-                https_ok = False
-                print(f"✗ HTTPS pour {domain}: ÉCHEC SSL ({str(e)})")
-                print("  Conseil: Le serveur peut avoir des problèmes de certificats SSL ou utiliser un proxy qui interfère.")
-            except requests.exceptions.ConnectionError as e:
-                https_ok = False
-                print(f"✗ HTTPS pour {domain}: ÉCHEC DE CONNEXION ({str(e)})")
-                print("  Conseil: Le serveur peut bloquer les connexions sortantes. Vérifiez le pare-feu.")
-            except requests.exceptions.Timeout as e:
-                https_ok = False
-                print(f"✗ HTTPS pour {domain}: TIMEOUT ({str(e)})")
-                print("  Conseil: La connexion est trop lente ou bloquée.")
-            except Exception as e:
-                https_ok = False
-                print(f"✗ HTTPS pour {domain}: ÉCHEC ({str(e)})")
-                
-            results[domain] = {"dns": dns_ok, "https": https_ok}
-        except Exception as e:
-            print(f"✗ Test pour {domain}: ERREUR GÉNÉRALE ({str(e)})")
-            results[domain] = {"dns": False, "https": False}
-    
-    # Évaluation globale
-    all_ok = all(all(result.values()) for result in results.values())
-    
-    if all_ok:
-        print("\n✓ CONNECTIVITÉ AUX API GOOGLE: OK")
-    else:
-        print("\n✗ PROBLÈMES DE CONNECTIVITÉ DÉTECTÉS!")
-        print("Solutions possibles:")
-        print("1. Vérifiez que votre serveur autorise les connexions sortantes vers les domaines Google")
-        print("2. Contactez votre hébergeur pour autoriser les domaines requis")
-        print("3. Vérifiez la configuration du pare-feu ou proxy du serveur")
+                return False
         
-    print("==================================================\n")
-    
-    return all_ok
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la vérification de connectivité: {str(e)}")
+        return False
 
-@app.get("/check-connectivity")
-def api_check_connectivity():
-    """Endpoint pour vérifier la connectivité aux API Google"""
-    result = check_google_connectivity()
+@app.get("/health")
+def health():
+    """Endpoint de vérification de santé pour les moniteurs et load balancers"""
     sheet = get_sheet_client()
-    
     return jsonify({
-        "connectivity": result,
-        "sheet_client": sheet is not None,
-        "environment": {
-            "working_directory": os.getcwd(),
-            "service_account_file": os.environ.get("SERVICE_ACCOUNT_FILE"),
-            "service_account_exists": os.path.exists(os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")),
-            "sheet_id": os.environ.get("SHEET_ID")
-        }
+        "status": "ok" if sheet is not None else "degraded",
+        "google_sheets": "ok" if sheet is not None else "error"
     })
 
 if __name__ == "__main__":
-    # Vérifier la connectivité avant de démarrer le serveur
-    check_google_connectivity()
-    
     # Vérifier les variables d'environnement essentielles
-    print(f"Working directory: {os.getcwd()}")
     print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE', 'Non défini')}")
     print(f"SHEET_ID: {os.environ.get('SHEET_ID', 'Non défini')}")
     
     # Démarrer le serveur
-    # Utiliser le port spécifié dans l'environnement ou 8080 par défaut au lieu de 5000
     port = int(os.environ.get("PORT", 8080))
     print(f"Démarrage du serveur sur le port {port}...")
     app.run(host="0.0.0.0", port=port, debug=True)  # OK: seulement en debug local
-
-@app.get("/health")
-def health():
-    return "ok", 200
