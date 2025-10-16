@@ -634,3 +634,7 @@ def debug():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)  # OK: seulement en debug local
+
+@app.get("/health")
+def health():
+    return "ok", 200
