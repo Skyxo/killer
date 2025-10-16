@@ -113,21 +113,29 @@ def main():
         return False
 
 if __name__ == "__main__":
+    # Si le contournement pare-feu est disponible, l'importer
+    try:
+        if os.path.exists(os.path.join(os.path.dirname(__file__), 'firewall_bypass.py')):
+            print("Chargement du contournement pare-feu...")
+            import firewall_bypass
+    except Exception as e:
+        print(f"Note: Contournement pare-feu non chargé: {str(e)}")
+    
     # Si SSL bypass est disponible, l'importer
     try:
         if os.path.exists(os.path.join(os.path.dirname(__file__), 'ssl_bypass.py')):
             print("Chargement du bypass SSL...")
             import ssl_bypass
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Note: SSL bypass non chargé: {str(e)}")
     
     # Si proxy_config est disponible, l'importer
     try:
         if os.path.exists(os.path.join(os.path.dirname(__file__), 'proxy_config.py')):
             print("Chargement de la configuration proxy...")
             import proxy_config
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Note: Configuration proxy non chargée: {str(e)}")
     
     success = main()
     sys.exit(0 if success else 1)

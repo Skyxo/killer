@@ -7,6 +7,16 @@ from flask_session import Session
 import gspread
 from google.oauth2 import service_account
 
+# Chargement des contournements pare-feu et SSL
+try:
+    # Essayer de charger le contournement de pare-feu en premier
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'firewall_bypass.py')):
+        print("Chargement du contournement pare-feu...")
+        sys.path.insert(0, os.path.dirname(__file__))
+        import firewall_bypass
+except Exception as e:
+    print(f"Remarque: Contournement pare-feu non chargé: {str(e)}")
+
 # Tenter de charger la configuration proxy si elle existe
 try:
     if os.path.exists(os.path.join(os.path.dirname(__file__), 'proxy_config.py')):

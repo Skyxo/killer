@@ -74,7 +74,7 @@ $SSH_COMMAND "mkdir -p $DEST_DIR" || {
 
 # Copier les fichiers
 echo -e "${BLUE}Copie des fichiers vers le serveur...${NC}"
-$SCP_COMMAND server.py requirements.txt fix_ssl.sh test_google_auth.py proxy_config.py $ZOMRO_USER@$ZOMRO_IP:$DEST_DIR/ || {
+$SCP_COMMAND server.py requirements.txt fix_ssl.sh test_google_auth.py proxy_config.py firewall_bypass.py direct_ip_test.py $ZOMRO_USER@$ZOMRO_IP:$DEST_DIR/ || {
     echo -e "${RED}ERREUR: Impossible de copier les fichiers principaux!${NC}"
     exit 1
 }
@@ -104,7 +104,7 @@ $SCP_COMMAND -r client $ZOMRO_USER@$ZOMRO_IP:$DEST_DIR/ || {
 
 # Exécuter les commandes de configuration sur le serveur
 echo -e "${BLUE}Configuration du serveur...${NC}"
-$SSH_COMMAND "cd $DEST_DIR && pip install -r requirements.txt && chmod +x fix_ssl.sh test_google_auth.py" || {
+$SSH_COMMAND "cd $DEST_DIR && pip install -r requirements.txt && chmod +x fix_ssl.sh test_google_auth.py direct_ip_test.py" || {
     echo -e "${YELLOW}AVERTISSEMENT: Certaines commandes de configuration ont échoué!${NC}"
 }
 
@@ -113,6 +113,10 @@ echo -e "${BLUE}Exécution du script de correction SSL...${NC}"
 $SSH_COMMAND "cd $DEST_DIR && ./fix_ssl.sh" || {
     echo -e "${YELLOW}AVERTISSEMENT: Le script de correction SSL a rencontré des problèmes!${NC}"
 }
+
+# Tester les connexions directes aux IPs Google
+echo -e "${BLUE}Test des connexions directes aux IPs Google...${NC}"
+$SSH_COMMAND "cd $DEST_DIR && python direct_ip_test.py"
 
 # Tester l'authentification Google
 echo -e "${BLUE}Test de l'authentification Google...${NC}"

@@ -33,13 +33,18 @@ else
     echo "❌ Test curl échoué avec code $CURL_RESULT."
 fi
 
-# Test avec openssl
+# Test avec openssl (avec timeout)
 echo "Test avec openssl..."
-echo | openssl s_client -connect sheets.googleapis.com:443 -servername sheets.googleapis.com > /dev/null 2>&1
+# Utiliser timeout pour éviter que le test ne bloque indéfiniment
+timeout 10 bash -c "echo | openssl s_client -connect sheets.googleapis.com:443 -servername sheets.googleapis.com > /dev/null 2>&1"
 SSL_RESULT=$?
 
 if [ $SSL_RESULT -eq 0 ]; then
     echo "✅ Test OpenSSL réussi!"
+elif [ $SSL_RESULT -eq 124 ]; then
+    echo "⚠️ Test OpenSSL a expiré (timeout). Cela indique probablement un blocage réseau."
+    echo "Le pare-feu du serveur Zomro bloque probablement les connexions vers les API Google."
+    echo "Tentative de correction avancée..."
 else
     echo "❌ Test OpenSSL échoué avec code $SSL_RESULT."
     echo "Problème de certificat détecté. Tentative de correction avancée..."
