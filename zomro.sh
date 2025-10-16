@@ -15,7 +15,7 @@ echo
 # Configuration
 ZOMRO_IP="188.137.176.245"
 ZOMRO_USER="root"
-SSH_KEY="~/.ssh/killer"
+SSH_KEY="~/.ssh/id_ed25519"  # Utilisation de la clé existante
 DEST_DIR="/var/www/killer"
 PORT=8080
 
@@ -363,15 +363,10 @@ case "$1" in
         # Nettoyer les fichiers temporaires
         clean_temp_files
         
-        # Configuration SSH
-        if [ -f "$SSH_KEY" ]; then
-            SSH_COMMAND="ssh -i $SSH_KEY $ZOMRO_USER@$ZOMRO_IP"
-            SCP_COMMAND="scp -i $SSH_KEY"
-        else
-            echo -e "${YELLOW}Clé SSH non trouvée à $SSH_KEY. Utilisation de l'authentification par mot de passe.${NC}"
-            SSH_COMMAND="ssh $ZOMRO_USER@$ZOMRO_IP"
-            SCP_COMMAND="scp"
-        fi
+        # Configuration SSH - Forcer l'authentification par mot de passe
+        echo -e "${YELLOW}Utilisation de l'authentification par mot de passe.${NC}"
+        SSH_COMMAND="ssh $ZOMRO_USER@$ZOMRO_IP"
+        SCP_COMMAND="scp"
         
         # Déployer l'application
         deploy_app "$SCP_COMMAND" "$SSH_COMMAND"
