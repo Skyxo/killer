@@ -60,8 +60,11 @@ Cette application permet de gérer un jeu de Killer où :
 
 1. Rendez-vous sur la [Console Google Cloud](https://console.cloud.google.com/)
 2. Créez un nouveau projet ou sélectionnez un projet existant
-3. Activez l'API Google Sheets pour votre projet
-   - Dans "Bibliothèque d'API", recherchez et activez "Google Sheets API"
+3. **Important - Activez l'API Google Sheets pour votre projet**
+   - Dans "Bibliothèque d'API", recherchez "Google Sheets API"
+   - Cliquez dessus et appuyez sur le bouton "Activer"
+   - **Pour projet killer-475209** : Allez directement sur https://console.developers.google.com/apis/api/sheets.googleapis.com/overview?project=699915088023
+   - Attendez quelques minutes pour que l'activation soit prise en compte
 4. Créez un compte de service :
    - Allez dans "IAM et administration" > "Comptes de service"
    - Cliquez sur "Créer un compte de service"
@@ -76,6 +79,10 @@ Cette application permet de gérer un jeu de Killer où :
    - Une clé sera téléchargée sur votre ordinateur
 
 6. Renommez le fichier téléchargé en `service_account.json` et placez-le à la racine du projet
+
+⚠️ **Note importante pour résoudre les erreurs courantes** ⚠️
+- Si vous recevez une erreur indiquant que "L'API Google Sheets n'est pas activée", assurez-vous d'avoir bien suivi l'étape 3 ci-dessus.
+- Vérifiez que le nom du fichier est exactement `service_account.json` (sans fautes d'orthographe).
 
 ### 2. Configuration de la feuille Google Sheets
 
@@ -105,7 +112,7 @@ Créez un fichier `.env` à la racine du projet avec les informations suivantes 
 ```
 FLASK_SECRET_KEY=une_clé_secrète_longue_et_aléatoire
 SERVICE_ACCOUNT_FILE=service_account.json
-SHEET_ID=1MSGo1flz_yyGKcJ0EQdnx4Qe92ciNu9gXMu9EYp6OH4
+SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY
 ```
 
 Remplacez `une_clé_secrète_longue_et_aléatoire` par une chaîne de caractères aléatoire. Vous pouvez en générer une avec Python :
@@ -179,6 +186,13 @@ Voici quelques scénarios de test pour vérifier le bon fonctionnement de l'appl
 - Ajouter un système de logs pour suivre les actions (qui a tué qui et quand)
 - Implémenter une vue administrateur pour gérer les joueurs et résoudre les problèmes
 - Ajouter un système de notifications (email, SMS) pour informer les joueurs des changements
+
+### Récentes améliorations
+- Adaptation à la nouvelle structure de colonnes Google Sheet
+- Résolution du problème d'affichage des photos (utilisation de l'API thumbnail de Google Drive)
+- Connexion rendue insensible à la casse
+- Désactivation visuelle des boutons "Je suis mort" et "J'abandonne" pour les joueurs déjà morts
+- Style visuel amélioré pour distinguer les joueurs morts ou ayant abandonné
 
 ## Remarques techniques
 

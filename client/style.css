@@ -1,12 +1,13 @@
-/* Variables globales */
+/* Variables globales - Thème violet U56 */
 :root {
-    --primary-color: #e74c3c;
-    --secondary-color: #2c3e50;
-    --background-color: #ecf0f1;
-    --text-color: #2c3e50;
+    --primary-color: #6A1B9A;      /* Violet foncé */
+    --secondary-color: #9C27B0;    /* Violet moyen */
+    --background-color: #F3E5F5;   /* Violet très clair */
+    --text-color: #4A148C;         /* Violet très foncé */
     --card-background: #ffffff;
-    --error-color: #e74c3c;
-    --success-color: #27ae60;
+    --error-color: #D32F2F;        /* Rouge adapté */
+    --success-color: #388E3C;      /* Vert adapté */
+    --accent-color: #8E24AA;       /* Violet accent */
 }
 
 /* Reset et styles de base */
@@ -17,35 +18,69 @@
 }
 
 body {
-    font-family: 'Arial', sans-serif;
+    font-family: 'Roboto', sans-serif;
     background-color: var(--background-color);
     color: var(--text-color);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding: 0;
+    margin: 0;
+    min-height: 100vh;
 }
 
 .container {
     max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 header {
     text-align: center;
     margin-bottom: 40px;
+    position: relative;
+    padding-top: 20px;
+}
+
+.logo-container {
+    margin-bottom: 20px;
+}
+
+.logo {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 60px;
+    border: 3px solid var(--secondary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 h1 {
     color: var(--primary-color);
-    font-size: 3rem;
+    font-size: 3.5rem;
     margin-bottom: 10px;
     text-transform: uppercase;
-    letter-spacing: 3px;
+    letter-spacing: 4px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .subtitle {
     color: var(--secondary-color);
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     font-style: italic;
+    font-weight: 500;
 }
 
 h2 {
@@ -76,126 +111,254 @@ h2 {
 label {
     display: block;
     margin-bottom: 8px;
-    font-weight: bold;
+    font-weight: 500;
+    color: var(--primary-color);
 }
 
-input[type="text"],
-input[type="password"] {
+input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
+    border: 2px solid var(--secondary-color);
     border-radius: 5px;
-    font-size: 16px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
 }
 
 input:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 5px rgba(231, 76, 60, 0.5);
+    box-shadow: 0 0 0 2px rgba(106, 27, 154, 0.2);
 }
 
 .btn {
-    padding: 12px 24px;
-    border: none;
+    display: inline-block;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 12px 20px;
+    font-size: 1rem;
+    line-height: 1.5;
     border-radius: 5px;
     cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #cccccc;
+    border-color: #bbbbbb;
+    color: #666666;
+    box-shadow: none;
 }
 
 .btn-primary {
     background-color: var(--primary-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-primary:hover {
-    background-color: #c0392b;
+    background-color: #4A148C;
 }
 
 .btn-secondary {
-    background-color: #7f8c8d;
-    color: white;
+    background-color: #E1BEE7;
+    color: var(--primary-color);
 }
 
 .btn-secondary:hover {
-    background-color: #6c7a7d;
+    background-color: #CE93D8;
 }
 
-.btn-danger {
-    background-color: #e74c3c;
+.btn-warning {
+    background-color: #FFD54F;
+    color: #5D4037;
+}
+
+.btn-warning:hover {
+    background-color: #FFCA28;
+}
+
+.btn-success {
+    background-color: var(--success-color);
     color: white;
 }
 
-.btn-danger:hover {
-    background-color: #c0392b;
+.btn-success:hover {
+    background-color: #2E7D32;
 }
+
+/* Ce style a été consolidé plus haut */
 
 .error-message {
     color: var(--error-color);
     margin-top: 10px;
-    font-weight: bold;
+    font-size: 0.9rem;
 }
 
-/* Styles de l'interface joueur */
-#player-container {
+/* Styles pour l'interface du joueur */
+.header-profile {
     display: flex;
-    flex-wrap: wrap;
-    gap: 30px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 20px;
 }
 
-.player-info,
+#player-nickname-header {
+    font-size: 1.8rem;
+    margin: 0;
+    color: var(--primary-color);
+    flex-grow: 1;
+}
+
+.photo-small {
+    width: 80px;
+    height: 80px;
+    cursor: pointer;
+}
+
 .target-info {
-    flex: 1;
-    min-width: 300px;
     background-color: var(--card-background);
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
 }
 
-.profile-card,
 .target-card {
     margin-bottom: 20px;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
 }
 
-.profile-detail,
-.target-detail,
-.action-detail {
-    margin-bottom: 10px;
-    padding: 8px 0;
-    border-bottom: 1px dashed #ddd;
+.mission-statement {
+    font-size: 1.6rem;
+    margin: 20px 0;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.target-name {
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.profile-detail:last-child, .target-detail:last-child {
+    border-bottom: none;
 }
 
 .label {
-    font-weight: bold;
-    margin-right: 10px;
+    font-weight: 500;
+    color: var(--primary-color);
 }
 
 .action {
-    color: var(--primary-color);
-    font-weight: bold;
-    font-style: italic;
-    display: block;
-    margin-top: 5px;
-    font-size: 1.2rem;
-}
-
-#kill-btn {
-    width: 100%;
-    margin-top: 20px;
-    padding: 15px;
-    font-size: 18px;
-    text-transform: uppercase;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent-color);
 }
 
 #logout-btn {
-    width: 100%;
     margin-top: 20px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 40px;
+}
+
+.action-buttons button {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+}
+
+/* Style pour la fenêtre modale des photos */
+.photo-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+#modal-image {
+    width: 100%;
+    max-height: 90vh;
+    object-fit: contain;
+}
+
+.close-modal {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.close-modal:hover {
+    color: var(--primary-color);
+}
+
+/* Classe pour indiquer visuellement un joueur mort */
+.player-dead {
+    position: relative;
+}
+
+.player-dead::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 0, 0, 0.1);
+    z-index: -1;
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+/* Classe pour indiquer visuellement un joueur qui a abandonné */
+.player-gave-up {
+    position: relative;
+}
+
+.player-gave-up::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(150, 150, 150, 0.2);
+    z-index: -1;
+    border-radius: 10px;
+    pointer-events: none;
 }
 
 /* Notification après un kill */
@@ -203,12 +366,12 @@ input:focus {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    width: 100%;
+    height: 100%;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.7);
     z-index: 1000;
 }
 
@@ -216,43 +379,105 @@ input:focus {
     background-color: var(--card-background);
     padding: 30px;
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    max-width: 500px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+    max-width: 90%;
+    width: 500px;
     text-align: center;
 }
 
 .notification h3 {
-    color: var(--primary-color);
+    color: var(--success-color);
     margin-bottom: 20px;
 }
 
-#close-notification {
-    margin-top: 20px;
+.notification p {
+    margin-bottom: 15px;
 }
 
-/* Media queries pour la responsivité */
+/* Styles pour les photos */
+.profile-photos, .target-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: center;
+}
+
+.photo-container {
+    width: 200px;
+    height: 200px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.player-photo, .target-photo, .new-target-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.player-photo:hover, .target-photo:hover {
+    transform: scale(1.05);
+}
+
+#new-target-person-photo-container {
+    width: 180px;
+    height: 180px;
+    margin: 15px auto;
+}
+
+/* Responsive design */
 @media (max-width: 768px) {
     .container {
         padding: 15px;
     }
     
     h1 {
-        font-size: 2rem;
+        font-size: 2.5rem;
     }
     
-    .player-info, 
-    .target-info {
-        min-width: 100%;
+    .logo {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .photo-container {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .profile-detail, .target-detail {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .label {
+        margin-bottom: 5px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
     }
 }
 
 @media (max-width: 480px) {
-    .btn {
-        padding: 10px 20px;
-        font-size: 14px;
+    .photo-container {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
     }
     
-    h2 {
-        font-size: 1.2rem;
+    .profile-photos, .target-photos {
+        flex-direction: column;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .action-buttons button {
+        padding: 10px 15px;
     }
 }
