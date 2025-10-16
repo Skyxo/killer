@@ -300,13 +300,17 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=$DEST_DIR
-ExecStart=/usr/local/bin/gunicorn -b 0.0.0.0:$PORT server:app --workers 3 --timeout 60
+EnvironmentFile=-$DEST_DIR/.env
+Environment=PYTHONUNBUFFERED=1
+Environment=SERVICE_ACCOUNT_FILE=$DEST_DIR/service_account.json
+Environment=SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY
+Environment=PORT=$PORT
+ExecStartPre=/bin/mkdir -p $DEST_DIR/flask_session
+ExecStart=$DEST_DIR/.venv/bin/python server.py
 Restart=always
+RestartSec=5
 StandardOutput=file:/var/log/killer.log
 StandardError=file:/var/log/killer.error.log
-Environment=\"SERVICE_ACCOUNT_FILE=$DEST_DIR/service_account.json\"
-Environment=\"SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY\"
-Environment=\"PORT=$PORT\"
 
 [Install]
 WantedBy=multi-user.target
@@ -314,10 +318,14 @@ EOL" || {
         echo -e "${YELLOW}AVERTISSEMENT: Impossible de créer le service systemd!${NC}"
     }
     
-    # 6. Installer les dépendances
-    echo -e "${BLUE}Installation des dépendances...${NC}"
-    $SSH_COMMAND "cd $DEST_DIR && pip install -r requirements.txt" || {
-        echo -e "${YELLOW}AVERTISSEMENT: Problème lors de l'installation des dépendances!${NC}"
+    # 6. Préparer l'environnement virtuel et installer les dépendances
+    echo -e "${BLUE}Création/actualisation de l'environnement virtuel...${NC}"
+    $SSH_COMMAND "cd $DEST_DIR && python3 -m venv .venv" || {
+        echo -e "${YELLOW}AVERTISSEMENT: Impossible de créer l'environnement virtuel!${NC}"
+    }
+    echo -e "${BLUE}Installation des dépendances dans l'environnement virtuel...${NC}"
+    $SSH_COMMAND "cd $DEST_DIR && $DEST_DIR/.venv/bin/pip install --upgrade pip && $DEST_DIR/.venv/bin/pip install -r requirements.txt" || {
+        echo -e "${YELLOW}AVERTISSEMENT: Problème lors de l'installation des dépendances dans l'environnement virtuel!${NC}"
     }
     
     # 7. Créer le script de contournement SSL

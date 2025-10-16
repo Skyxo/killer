@@ -113,6 +113,8 @@ Créez un fichier `.env` à la racine du projet avec les informations suivantes 
 FLASK_SECRET_KEY=une_clé_secrète_longue_et_aléatoire
 SERVICE_ACCOUNT_FILE=service_account.json
 SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY
+GOOGLE_REQUEST_TIMEOUT=15
+SHEET_CACHE_TTL=60
 ```
 
 Remplacez `une_clé_secrète_longue_et_aléatoire` par une chaîne de caractères aléatoire. Vous pouvez en générer une avec Python :

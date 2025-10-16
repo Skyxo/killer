@@ -1,5 +1,7 @@
 import os
 import socket
+import threading
+import time
 from typing import Optional
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
@@ -11,6 +13,12 @@ from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
 import gspread
 from google.oauth2 import service_account
+from google.auth.transport.requests import AuthorizedSession
+
+try:
+    import requests
+except ImportError:  # pragma: no cover - requests est une dépendance de gspread
+    requests = None
 
 
 def _env_flag_is_true(env_value: Optional[str]) -> bool:
@@ -150,9 +158,52 @@ SHEET_COLUMNS = {
     "STATUS": 13      # État (alive/dead/gaveup)
 }
 
+_sheet_cache_lock = threading.Lock()
+_cached_sheet = None
+_cached_sheet_timestamp = 0.0
+
+
+class AuthorizedSessionWithTimeout(AuthorizedSession):
+    """Session autorisée Google avec timeout par défaut."""
+
+    def __init__(self, credentials, default_timeout: Optional[float]):
+        super().__init__(credentials)
+        self._default_timeout = default_timeout
+
+    def request(self, method, url, data=None, headers=None, timeout=None, **kwargs):
+        effective_timeout = timeout or self._default_timeout
+        return super().request(
+            method,
+            url,
+            data=data,
+            headers=headers,
+            timeout=effective_timeout,
+            **kwargs,
+        )
+
+
+def _get_cached_sheet(ttl_seconds: float):
+    global _cached_sheet, _cached_sheet_timestamp
+    now = time.time()
+    if _cached_sheet is not None and (now - _cached_sheet_timestamp) < ttl_seconds:
+        return _cached_sheet
+    return None
+
+
+def _store_sheet_in_cache(sheet):
+    global _cached_sheet, _cached_sheet_timestamp
+    _cached_sheet = sheet
+    _cached_sheet_timestamp = time.time()
+
+
 # Connexion à l'API Google Sheets
 def get_sheet_client():
     try:
+        cache_ttl = float(os.environ.get("SHEET_CACHE_TTL", "60"))
+        sheet = _get_cached_sheet(cache_ttl)
+        if sheet is not None:
+            return sheet
+
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")
         
@@ -163,11 +214,15 @@ def get_sheet_client():
                       f"et remplissez-le avec vos informations d'identification Google.")
             return None
         
+        timeout_seconds = float(os.environ.get("GOOGLE_REQUEST_TIMEOUT", "15"))
         credentials = service_account.Credentials.from_service_account_file(
             service_account_file,
             scopes=scope
         )
-        client = gspread.authorize(credentials)
+        session_timeout = timeout_seconds if timeout_seconds > 0 else None
+        session = AuthorizedSessionWithTimeout(credentials, session_timeout)
+        client = gspread.Client(auth=session)
+        client.session = session
         sheet_id = os.environ.get("SHEET_ID")
         if not sheet_id:
             print("AVERTISSEMENT: SHEET_ID manquant dans les variables d'environnement.")
@@ -185,7 +240,13 @@ def get_sheet_client():
                 else:
                     raise ValueError("SHEET_ID manquant dans les variables d'environnement et aucun spreadsheet n'est disponible.")
         try:
-            sheet = client.open_by_key(sheet_id).sheet1
+            with _sheet_cache_lock:
+                cached_sheet = _get_cached_sheet(cache_ttl)
+                if cached_sheet is not None:
+                    return cached_sheet
+
+                sheet = client.open_by_key(sheet_id).sheet1
+                _store_sheet_in_cache(sheet)
             return sheet
         except Exception as sheet_error:
             raise ValueError(f"Erreur lors de l'ouverture du spreadsheet: {str(sheet_error)}. Vérifiez que l'ID est correct et que le service account a les permissions nécessaires.")
@@ -206,6 +267,8 @@ def get_sheet_client():
         else:
             print(f"AVERTISSEMENT: Erreur lors de la connexion à Google Sheets: {error_msg}")
             print(f"Détails de l'erreur: {traceback.format_exc()}")
+            if requests is not None and isinstance(e, requests.exceptions.Timeout):
+                print("Détails: Timeout lors de l'appel à l'API Google Sheets. Réessayera au prochain appel.")
             print("Le serveur continue de démarrer malgré cette erreur.")
             return None
     except Exception as e:
