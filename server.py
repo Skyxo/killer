@@ -4,6 +4,8 @@ from typing import Optional
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
 
+import gunicorn.app.base
+
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
@@ -213,10 +215,19 @@ def get_sheet_client():
         print("Le serveur continue de démarrer malgré cette erreur.")
         return None
 
+# Fournit un accès obligatoire à la feuille ou lève une erreur contrôlée
+def require_sheet_client():
+    sheet = get_sheet_client()
+    if sheet is None:
+        raise ConnectionError(
+            "Connexion à Google Sheets indisponible. Vérifiez la connectivité réseau et les identifiants."
+        )
+    return sheet
+
 # Fonction pour initialiser la colonne "État" si elle n'existe pas
 def initialize_status_column():
     try:
-        sheet = get_sheet_client()
+        sheet = require_sheet_client()
         headers = sheet.row_values(1)
         
         # Vérifier si les colonnes nécessaires existent déjà
@@ -263,7 +274,7 @@ def initialize_status_column():
 
 # Fonction auxiliaire pour obtenir les données d'un joueur par son surnom
 def get_player_by_nickname(nickname):
-    sheet = get_sheet_client()
+    sheet = require_sheet_client()
     data = sheet.get_all_values()
     
     # Ignorer la ligne d'en-tête
@@ -390,6 +401,8 @@ def login():
         
         if not player:
             return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
     except FileNotFoundError as e:
         return jsonify({"success": False, "message": str(e)}), 500
     except Exception as e:
@@ -412,7 +425,7 @@ def login():
             
             if next_target:
                 # Mettre à jour la cible dans la feuille
-                sheet = get_sheet_client()
+                sheet = require_sheet_client()
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target["action"])
                 
@@ -451,7 +464,10 @@ def get_me():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
     
-    player = get_player_by_nickname(session["nickname"])
+    try:
+        player = get_player_by_nickname(session["nickname"])
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
     
     if not player:
         # Cas où le joueur a été supprimé pendant la session
@@ -469,7 +485,7 @@ def get_me():
             
             if next_target:
                 # Mettre à jour la cible dans la feuille
-                sheet = get_sheet_client()
+                sheet = require_sheet_client()
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target["action"])
                 
@@ -507,10 +523,8 @@ def get_me():
 def kill():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
-    
-    sheet = get_sheet_client()
-    
     try:
+        sheet = require_sheet_client()
         # Récupérer le joueur (killer)
         killer = get_player_by_nickname(session["nickname"])
         
@@ -575,7 +589,8 @@ def kill():
         }
         
         return jsonify(response)
-        
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors du kill: {e}")
         return jsonify({"success": False, "message": f"Erreur lors du kill: {str(e)}"}), 500
@@ -584,10 +599,8 @@ def kill():
 def killed():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
-    
-    sheet = get_sheet_client()
-    
     try:
+        sheet = require_sheet_client()
         # Récupérer le joueur qui déclare avoir été tué
         player = get_player_by_nickname(session["nickname"])
         
@@ -622,7 +635,8 @@ def killed():
             "success": True,
             "message": "Vous avez été marqué comme éliminé"
         })
-        
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors de la déclaration de mort: {e}")
         return jsonify({"success": False, "message": f"Erreur lors de la déclaration: {str(e)}"}), 500
@@ -631,10 +645,8 @@ def killed():
 def give_up():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
-    
-    sheet = get_sheet_client()
-    
     try:
+        sheet = require_sheet_client()
         # Récupérer le joueur qui abandonne
         player = get_player_by_nickname(session["nickname"])
         
@@ -671,14 +683,15 @@ def give_up():
             "success": True,
             "message": "Vous avez abandonné le jeu"
         })
-        
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors de l'abandon: {e}")
         return jsonify({"success": False, "message": f"Erreur lors de l'abandon: {str(e)}"}), 500
 
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
-    sheet = get_sheet_client()
+    sheet = require_sheet_client()
     data = sheet.get_all_values()
     
     players = []
@@ -722,7 +735,7 @@ def debug():
         return jsonify({"success": False, "message": "Non connecté"}), 401
     
     try:
-        sheet = get_sheet_client()
+        sheet = require_sheet_client()
         data = sheet.get_all_values()
         
         # Convertir les données en format plus lisible
@@ -757,9 +770,86 @@ def debug():
     except Exception as e:
         return jsonify({"success": False, "message": f"Erreur: {str(e)}"}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)  # OK: seulement en debug local
-
 @app.get("/health")
 def health():
     return "ok", 200
+
+
+def _coerce_positive_int(value: Optional[str], default: int) -> int:
+    try:
+        parsed = int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _default_worker_count() -> int:
+    try:
+        import multiprocessing
+
+        cpu_count = multiprocessing.cpu_count()
+    except (ImportError, NotImplementedError):  # pragma: no cover - environ exotiques
+        cpu_count = 1
+    return max(1, cpu_count * 2 + 1)
+
+
+def _build_gunicorn_options() -> dict:
+    host = os.environ.get("HOST", os.environ.get("BIND", "0.0.0.0"))
+    port = _coerce_positive_int(os.environ.get("PORT"), 5000)
+    workers = _coerce_positive_int(
+        os.environ.get("GUNICORN_WORKERS"), _default_worker_count()
+    )
+    timeout = _coerce_positive_int(os.environ.get("GUNICORN_TIMEOUT"), 60)
+    keepalive = _coerce_positive_int(os.environ.get("GUNICORN_KEEPALIVE"), 5)
+
+    return {
+        "bind": f"{host}:{port}",
+        "workers": workers,
+        "timeout": timeout,
+        "keepalive": keepalive,
+        "accesslog": os.environ.get("GUNICORN_ACCESS_LOG", "-"),
+        "errorlog": os.environ.get("GUNICORN_ERROR_LOG", "-"),
+        "loglevel": os.environ.get("GUNICORN_LOGLEVEL", "info"),
+        "worker_tmp_dir": os.environ.get("GUNICORN_WORKER_TMP_DIR"),
+    }
+
+
+def run_gunicorn():
+    try:
+        from gunicorn.app.base import BaseApplication
+    except ImportError as exc:
+        print("\nERREUR: Gunicorn n'est pas installé (module introuvable).")
+        print("Installez les dépendances avec: pip install -r requirements.txt")
+        print("Démarrage du serveur de développement Flask en mode secours.\n")
+        app.run(host="0.0.0.0", port=_coerce_positive_int(os.environ.get("PORT"), 5000), debug=True)
+        return
+
+    class StandaloneGunicornApplication(BaseApplication):
+        def __init__(self, application, options=None):
+            self.application = application
+            self.options = options or {}
+            super().__init__()
+
+        def load_config(self):
+            config = {
+                key: value
+                for key, value in self.options.items()
+                if key in self.cfg.settings and value is not None
+            }
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
+
+    options = _build_gunicorn_options()
+    print("Démarrage de l'application avec Gunicorn")
+    for key, value in options.items():
+        if value is not None:
+            print(f"  {key}: {value}")
+
+    StandaloneGunicornApplication(app, options).run()
+
+
+if __name__ == "__main__":
+    run_gunicorn()

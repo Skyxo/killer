@@ -11,7 +11,6 @@ Une application web pour gérer le jeu du Killer, permettant aux joueurs de se c
 5. [Tests Manuels](#tests-manuels)
 6. [Limitations connues et recommandations](#limitations-connues-et-recommandations)
 7. [Remarques techniques](#remarques-techniques)
-8. [Déploiement sur Zomro](#déploiement-sur-zomro)
 
 ## Présentation
 
@@ -44,13 +43,13 @@ Cette application permet de gérer un jeu de Killer où :
 
 4. Créez un fichier `.env` à partir du fichier `.env.example` et remplissez les variables d'environnement nécessaires
 
-5. Démarrez le serveur
+5. Démarrez le serveur (Gunicorn est désormais utilisé par défaut)
    ```bash
    python server.py
    ```
-   ou
+   ou, pour spécifier vous-même les paramètres Gunicorn :
    ```bash
-   flask run
+   gunicorn -b 0.0.0.0:5000 server:app --workers 3 --timeout 60
    ```
 
 6. Accédez à l'application via votre navigateur à l'adresse http://localhost:5000
@@ -147,6 +146,16 @@ print(secrets.token_hex(16))
 4. Le système attribue automatiquement la prochaine cible au joueur
 5. Le jeu continue jusqu'à ce qu'il ne reste plus qu'un joueur vivant
 
+### 3. Variables d'environnement Gunicorn utiles
+
+- `PORT` : port HTTP d'écoute (par défaut `5000`)
+- `HOST` : adresse IP d'écoute (par défaut `0.0.0.0`)
+- `GUNICORN_WORKERS` : nombre de workers (par défaut `2 * CPU + 1`)
+- `GUNICORN_TIMEOUT` : délai avant arrêt d'un worker bloqué (par défaut `60` secondes)
+- `GUNICORN_KEEPALIVE` : durée des connexions keep-alive (par défaut `5` secondes)
+- `GUNICORN_ACCESS_LOG` / `GUNICORN_ERROR_LOG` : chemins de log (par défaut sortie standard)
+- `GUNICORN_LOGLEVEL` : niveau de log (`info`, `debug`, etc.)
+
 ## Tests Manuels
 
 Voici quelques scénarios de test pour vérifier le bon fonctionnement de l'application :
@@ -210,97 +219,3 @@ Lorsqu'un joueur élimine sa cible, le système:
 
 ### Endpoint de débogage
 L'application inclut un endpoint de débogage (`/api/debug`) qui affiche l'état complet de la feuille. Il est accessible uniquement pour les utilisateurs connectés, mais devrait être désactivé ou protégé par une authentification supplémentaire en production.
-
-## Déploiement sur Zomro
-
-### Déploiement rapide avec le script zomro.sh
-
-Un script de déploiement automatisé est inclus dans le projet pour faciliter la mise en ligne sur un serveur Zomro.
-
-```bash
-./zomro.sh deploy
-```
-
-Ce script va :
-- Vérifier la présence de tous les fichiers nécessaires
-- Transférer les fichiers sur le serveur
-- Installer les dépendances
-- Configurer le service systemd pour un fonctionnement permanent
-- Démarrer l'application
-
-### Configuration du serveur en fonctionnement permanent
-
-Le script de déploiement configure automatiquement l'application comme un service systemd qui :
-- Démarre automatiquement au démarrage du serveur
-- Redémarre automatiquement en cas de crash ou d'erreur
-- Fonctionne en arrière-plan
-
-#### Vérifier l'état du service
-
-```bash
-systemctl status killer
-```
-
-#### Commandes utiles pour gérer le service
-
-```bash
-# Redémarrer le service
-systemctl restart killer
-
-# Arrêter le service
-systemctl stop killer
-
-# Consulter les logs
-journalctl -u killer
-# ou
-tail -f /var/log/killer.log
-```
-
-### Fichier de configuration du service
-
-Le service systemd est configuré via le fichier `/etc/systemd/system/killer.service` avec les paramètres suivants :
-
-```ini
-[Unit]
-Description=Killer Game Flask Application
-After=network.target
-
-[Service]
-User=root
-WorkingDirectory=/var/www/killer
-ExecStart=/usr/local/bin/gunicorn -b 0.0.0.0:8080 server:app --workers 3 --timeout 60
-Restart=always
-StandardOutput=file:/var/log/killer.log
-StandardError=file:/var/log/killer.error.log
-Environment="SERVICE_ACCOUNT_FILE=/var/www/killer/service_account.json"
-Environment="SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY"
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Résolution des problèmes courants
-
-#### Erreurs SSL avec Google Sheets API
-
-Le script `zomro.sh fix` peut être utilisé pour résoudre les problèmes de certificats SSL :
-
-```bash
-./zomro.sh fix
-```
-
-#### Vérification des ports utilisés
-
-Pour vérifier quels processus utilisent les ports sur le serveur :
-
-```bash
-./zomro.sh check
-```
-
-#### Test de connectivité aux API Google
-
-Pour tester la connectivité aux API Google depuis le serveur :
-
-```bash
-./zomro.sh test
-```
