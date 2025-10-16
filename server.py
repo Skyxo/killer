@@ -1,10 +1,20 @@
 import os
 import json
+import sys
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
 import gspread
 from google.oauth2 import service_account
+
+# Tenter de charger la configuration proxy si elle existe
+try:
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'proxy_config.py')):
+        print("Chargement de la configuration proxy...")
+        sys.path.insert(0, os.path.dirname(__file__))
+        import proxy_config
+except Exception as e:
+    print(f"Remarque: Configuration proxy non chargée: {str(e)}")
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -716,20 +726,22 @@ def check_google_connectivity():
     """
     import socket
     import ssl
-    from urllib.request import urlopen
+    import requests
+    from urllib.request import Request, urlopen
+    import json
     
-    # Domaines Google à vérifier
-    domains = [
-        "sheets.googleapis.com",
-        "oauth2.googleapis.com", 
-        "www.googleapis.com"
-    ]
+    # Endpoints d'API Google à vérifier (URLs valides pour tester)
+    api_endpoints = {
+        "sheets.googleapis.com": "https://sheets.googleapis.com/$discovery/rest?version=v4",
+        "oauth2.googleapis.com": "https://oauth2.googleapis.com/token",
+        "www.googleapis.com": "https://www.googleapis.com/discovery/v1/apis"
+    }
     
     results = {}
     
     print("\n=== VÉRIFICATION DE LA CONNECTIVITÉ AUX SERVEURS GOOGLE ===")
     
-    for domain in domains:
+    for domain, url in api_endpoints.items():
         try:
             # Tenter une résolution DNS
             try:
@@ -740,11 +752,26 @@ def check_google_connectivity():
                 dns_ok = False
                 print(f"✗ DNS pour {domain}: ÉCHEC ({str(e)})")
             
-            # Tenter une connexion HTTPS
+            # Tenter une connexion HTTPS avec une requête GET valide
             try:
-                with urlopen(f"https://{domain}/", timeout=10) as response:
-                    https_ok = response.status == 200
-                    print(f"✓ HTTPS pour {domain}: OK (status {response.status})")
+                # Utiliser requests au lieu de urllib pour plus de robustesse
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                response = requests.get(url, headers=headers, timeout=15, verify=True)
+                # 2xx ou 3xx sont des codes réussis
+                https_ok = 200 <= response.status_code < 400
+                print(f"✓ HTTPS pour {domain}: OK (status {response.status_code})")
+            except requests.exceptions.SSLError as e:
+                https_ok = False
+                print(f"✗ HTTPS pour {domain}: ÉCHEC SSL ({str(e)})")
+                print("  Conseil: Le serveur peut avoir des problèmes de certificats SSL ou utiliser un proxy qui interfère.")
+            except requests.exceptions.ConnectionError as e:
+                https_ok = False
+                print(f"✗ HTTPS pour {domain}: ÉCHEC DE CONNEXION ({str(e)})")
+                print("  Conseil: Le serveur peut bloquer les connexions sortantes. Vérifiez le pare-feu.")
+            except requests.exceptions.Timeout as e:
+                https_ok = False
+                print(f"✗ HTTPS pour {domain}: TIMEOUT ({str(e)})")
+                print("  Conseil: La connexion est trop lente ou bloquée.")
             except Exception as e:
                 https_ok = False
                 print(f"✗ HTTPS pour {domain}: ÉCHEC ({str(e)})")

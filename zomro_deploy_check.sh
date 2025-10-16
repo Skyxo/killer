@@ -47,18 +47,19 @@ cat > check_google.py << EOL
 import socket
 import ssl
 import sys
-from urllib.request import urlopen
+import urllib.request
+import json
 
-# Domaines Google à vérifier
-domains = [
-    "sheets.googleapis.com",
-    "oauth2.googleapis.com", 
-    "www.googleapis.com"
-]
+# Endpoints d'API Google à vérifier (URLs valides pour tester)
+api_endpoints = {
+    "sheets.googleapis.com": "https://sheets.googleapis.com/$discovery/rest?version=v4",
+    "oauth2.googleapis.com": "https://oauth2.googleapis.com/token",
+    "www.googleapis.com": "https://www.googleapis.com/discovery/v1/apis"
+}
 
 all_ok = True
 
-for domain in domains:
+for domain, url in api_endpoints.items():
     try:
         # Test DNS
         try:
@@ -70,10 +71,15 @@ for domain in domains:
         
         # Test HTTPS
         try:
-            with urlopen(f"https://{domain}/", timeout=10) as response:
-                print(f"✓ HTTPS pour {domain}: OK (status {response.status})")
-        except Exception as e:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as response:
+                status = response.getcode()
+                print(f"✓ HTTPS pour {domain}: OK (status {status})")
+        except urllib.error.URLError as e:
             print(f"✗ HTTPS pour {domain}: ÉCHEC ({str(e)})")
+            if hasattr(e, 'reason') and isinstance(e.reason, ssl.SSLError):
+                print("  Conseil: Le serveur peut avoir des problèmes de certificats SSL.")
             all_ok = False
     except Exception as e:
         print(f"✗ Test pour {domain}: ERREUR GÉNÉRALE ({str(e)})")
