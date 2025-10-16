@@ -8,6 +8,7 @@
     --error-color: #D32F2F;        /* Rouge adapté */
     --success-color: #388E3C;      /* Vert adapté */
     --accent-color: #8E24AA;       /* Violet accent */
+    --loading-color: #9575CD;      /* Violet clair pour le chargement */
 }
 
 /* Reset et styles de base */
@@ -480,4 +481,29 @@ input:focus {
     .action-buttons button {
         padding: 10px 15px;
     }
+}
+
+/* Styles pour le mode chargement */
+.loading {
+    position: relative;
+    cursor: wait;
+}
+
+.loading::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background: linear-gradient(90deg, var(--loading-color) 0%, var(--primary-color) 50%, var(--loading-color) 100%);
+    background-size: 200% 100%;
+    animation: loading-animation 2s infinite;
+    z-index: 1000;
+}
+
+@keyframes loading-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }

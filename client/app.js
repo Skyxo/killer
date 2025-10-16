@@ -135,15 +135,20 @@ closeNotification.addEventListener('click', closeKillNotification);
  */
 function checkLoggedIn() {
     console.log('Vérification de la connexion...');
+    document.body.classList.add('loading');
+    displayStatus('Vérification de la connexion...');
+    
     // Ajouter un timestamp pour éviter le cache
     const timestamp = new Date().getTime();
     fetch(`/api/me?_=${timestamp}`, {
         headers: {
             'Cache-Control': 'no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
-            'Expires': '0'
+            'Expires': '0',
+            'Accept': 'application/json'
         },
-        credentials: 'same-origin' // S'assurer que les cookies sont envoyés
+        credentials: 'same-origin', // S'assurer que les cookies sont envoyés
+        timeout: 10000 // Timeout de 10 secondes
     })
     .then(response => {
         console.log('Réponse reçue:', response.status);
@@ -440,6 +445,14 @@ function displayError(message) {
 function displayMessage(message) {
     loginError.textContent = message;
     loginError.style.color = '#007bff'; // Bleu
+}
+
+/**
+ * Affiche un message de statut (en cours de chargement)
+ */
+function displayStatus(message) {
+    loginError.textContent = message;
+    loginError.style.color = '#6c757d'; // Gris
 }
 
 /**
