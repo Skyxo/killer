@@ -11,6 +11,7 @@ Une application web pour gérer le jeu du Killer, permettant aux joueurs de se c
 5. [Tests Manuels](#tests-manuels)
 6. [Limitations connues et recommandations](#limitations-connues-et-recommandations)
 7. [Remarques techniques](#remarques-techniques)
+8. [Déploiement sur Zomro](#déploiement-sur-zomro)
 
 ## Présentation
 
@@ -209,3 +210,97 @@ Lorsqu'un joueur élimine sa cible, le système:
 
 ### Endpoint de débogage
 L'application inclut un endpoint de débogage (`/api/debug`) qui affiche l'état complet de la feuille. Il est accessible uniquement pour les utilisateurs connectés, mais devrait être désactivé ou protégé par une authentification supplémentaire en production.
+
+## Déploiement sur Zomro
+
+### Déploiement rapide avec le script zomro.sh
+
+Un script de déploiement automatisé est inclus dans le projet pour faciliter la mise en ligne sur un serveur Zomro.
+
+```bash
+./zomro.sh deploy
+```
+
+Ce script va :
+- Vérifier la présence de tous les fichiers nécessaires
+- Transférer les fichiers sur le serveur
+- Installer les dépendances
+- Configurer le service systemd pour un fonctionnement permanent
+- Démarrer l'application
+
+### Configuration du serveur en fonctionnement permanent
+
+Le script de déploiement configure automatiquement l'application comme un service systemd qui :
+- Démarre automatiquement au démarrage du serveur
+- Redémarre automatiquement en cas de crash ou d'erreur
+- Fonctionne en arrière-plan
+
+#### Vérifier l'état du service
+
+```bash
+systemctl status killer
+```
+
+#### Commandes utiles pour gérer le service
+
+```bash
+# Redémarrer le service
+systemctl restart killer
+
+# Arrêter le service
+systemctl stop killer
+
+# Consulter les logs
+journalctl -u killer
+# ou
+tail -f /var/log/killer.log
+```
+
+### Fichier de configuration du service
+
+Le service systemd est configuré via le fichier `/etc/systemd/system/killer.service` avec les paramètres suivants :
+
+```ini
+[Unit]
+Description=Killer Game Flask Application
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/var/www/killer
+ExecStart=/usr/local/bin/gunicorn -b 0.0.0.0:8080 server:app --workers 3 --timeout 60
+Restart=always
+StandardOutput=file:/var/log/killer.log
+StandardError=file:/var/log/killer.error.log
+Environment="SERVICE_ACCOUNT_FILE=/var/www/killer/service_account.json"
+Environment="SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY"
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Résolution des problèmes courants
+
+#### Erreurs SSL avec Google Sheets API
+
+Le script `zomro.sh fix` peut être utilisé pour résoudre les problèmes de certificats SSL :
+
+```bash
+./zomro.sh fix
+```
+
+#### Vérification des ports utilisés
+
+Pour vérifier quels processus utilisent les ports sur le serveur :
+
+```bash
+./zomro.sh check
+```
+
+#### Test de connectivité aux API Google
+
+Pour tester la connectivité aux API Google depuis le serveur :
+
+```bash
+./zomro.sh test
+```
