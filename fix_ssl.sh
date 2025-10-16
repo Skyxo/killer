@@ -85,7 +85,8 @@ export PYTHONPATH=/var/www/killer:\$PYTHONPATH
 # Démarrer l'application avec le contournement SSL
 cd /var/www/killer
 python -c "import ssl_bypass"
-gunicorn -b 0.0.0.0:5000 server:app --workers 3 --timeout 60
+# Utiliser le port 8080 au lieu de 5000
+gunicorn -b 0.0.0.0:8080 server:app --workers 3 --timeout 60
 EOL
 
     chmod +x /var/www/killer/start_app.sh

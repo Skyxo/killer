@@ -834,7 +834,10 @@ if __name__ == "__main__":
     print(f"SHEET_ID: {os.environ.get('SHEET_ID', 'Non défini')}")
     
     # Démarrer le serveur
-    app.run(host="0.0.0.0", port=5000, debug=True)  # OK: seulement en debug local
+    # Utiliser le port spécifié dans l'environnement ou 8080 par défaut au lieu de 5000
+    port = int(os.environ.get("PORT", 8080))
+    print(f"Démarrage du serveur sur le port {port}...")
+    app.run(host="0.0.0.0", port=port, debug=True)  # OK: seulement en debug local
 
 @app.get("/health")
 def health():
