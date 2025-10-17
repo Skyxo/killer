@@ -8,7 +8,6 @@
     --error-color: #D32F2F;        /* Rouge adapté */
     --success-color: #388E3C;      /* Vert adapté */
     --accent-color: #8E24AA;       /* Violet accent */
-    --loading-color: #9575CD;      /* Violet clair pour le chargement */
 }
 
 /* Reset et styles de base */
@@ -56,16 +55,47 @@ header {
 }
 
 .logo-container {
+    --logo-size: 120px;
+    --blood-scale: 1.8;
     margin-bottom: 20px;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--logo-size);
+    height: var(--logo-size);
+}
+
+.logo-container::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(var(--logo-size) * var(--blood-scale));
+    height: calc(var(--logo-size) * var(--blood-scale));
+    background-image: url('img/coulee_de_sang_rond.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    z-index: 0;
+    pointer-events: none;
 }
 
 .logo {
-    width: 120px;
-    height: 120px;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 60px;
+    border-radius: 50%;
     border: 3px solid var(--secondary-color);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.logo-hint {
+    position: relative;
+    z-index: 1;
 }
 
 h1 {
@@ -75,6 +105,13 @@ h1 {
     text-transform: uppercase;
     letter-spacing: 4px;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.title-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
 }
 
 .subtitle {
@@ -222,14 +259,177 @@ input:focus {
     width: 80px;
     height: 80px;
     cursor: pointer;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
 }
 
-.target-info {
+.leaderboard-section {
     background-color: var(--card-background);
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     margin-bottom: 30px;
+}
+
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(74, 20, 140, 0.1);
+    text-align: left;
+}
+
+.leaderboard-table thead th {
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    color: var(--primary-color);
+    border-bottom: 2px solid rgba(74, 20, 140, 0.2);
+}
+
+.leaderboard-table tbody tr:nth-child(even) {
+    background-color: rgba(106, 27, 154, 0.03);
+}
+
+.leaderboard-table tbody tr.leaderboard-row-self {
+    background-color: rgba(56, 142, 60, 0.12);
+    font-weight: 600;
+}
+
+.leaderboard-table tbody tr.leaderboard-row-admin {
+    background-color: rgba(156, 39, 176, 0.1);
+}
+
+.leaderboard-empty,
+.leaderboard-error {
+    margin-top: 15px;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.leaderboard-error {
+    color: var(--error-color);
+}
+
+.status-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+}
+
+.status-alive {
+    background-color: var(--success-color);
+}
+
+.status-dead {
+    background-color: var(--error-color);
+}
+
+.status-gaveup {
+    background-color: #757575;
+}
+
+.status-admin {
+    background-color: var(--primary-color);
+}
+
+.leaderboard-table td {
+    word-break: break-word;
+}
+
+.admin-overview {
+    background-color: var(--card-background);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.admin-overview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.btn-small {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(74, 20, 140, 0.1);
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
+}
+
+.admin-table thead th {
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.07em;
+    color: var(--primary-color);
+    border-bottom: 2px solid rgba(74, 20, 140, 0.2);
+}
+
+.admin-table th.sortable {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    padding-right: 24px;
+}
+
+.admin-table th.sortable::after {
+    content: '\25B4\25BE'; /* ▲▼ */
+    position: absolute;
+    right: 6px;
+    font-size: 0.7rem;
+    opacity: 0.25;
+}
+
+.admin-table th.sortable[data-sort-direction="asc"]::after {
+    content: '\25B4'; /* ▲ */
+    opacity: 0.8;
+}
+
+.admin-table th.sortable[data-sort-direction="desc"]::after {
+    content: '\25BE'; /* ▼ */
+    opacity: 0.8;
+}
+
+.admin-table tbody tr:nth-child(even) {
+    background-color: rgba(106, 27, 154, 0.03);
+}
+
+.admin-overview-empty,
+.admin-overview-error {
+    margin-top: 12px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.admin-overview-error {
+    color: var(--error-color);
 }
 
 .target-card {
@@ -386,11 +586,6 @@ input:focus {
     text-align: center;
 }
 
-.notification h3 {
-    color: var(--success-color);
-    margin-bottom: 20px;
-}
-
 .notification p {
     margin-bottom: 15px;
 }
@@ -439,9 +634,8 @@ input:focus {
         font-size: 2.5rem;
     }
     
-    .logo {
-        width: 100px;
-        height: 100px;
+    .logo-container {
+        --logo-size: 100px;
     }
     
     .photo-container {
@@ -478,32 +672,11 @@ input:focus {
         font-size: 2rem;
     }
     
+    .logo-container {
+        --logo-size: 90px;
+    }
+    
     .action-buttons button {
         padding: 10px 15px;
     }
-}
-
-/* Styles pour le mode chargement */
-.loading {
-    position: relative;
-    cursor: wait;
-}
-
-.loading::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 5px;
-    background: linear-gradient(90deg, var(--loading-color) 0%, var(--primary-color) 50%, var(--loading-color) 100%);
-    background-size: 200% 100%;
-    animation: loading-animation 2s infinite;
-    z-index: 1000;
-}
-
-@keyframes loading-animation {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
 }

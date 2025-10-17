@@ -155,7 +155,8 @@ SHEET_COLUMNS = {
     "CURRENT_TARGET": 10, # Cible actuelle
     "INITIAL_ACTION": 11, # Action initiale
     "CURRENT_ACTION": 12, # Action actuelle
-    "STATUS": 13      # État (alive/dead/gaveup)
+    "STATUS": 13,     # État (alive/dead/gaveup)
+    "KILL_COUNT": 14, # Nombre de kills réalisés
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -194,6 +195,39 @@ def _store_sheet_in_cache(sheet):
     global _cached_sheet, _cached_sheet_timestamp
     _cached_sheet = sheet
     _cached_sheet_timestamp = time.time()
+
+
+def _parse_int(value: Optional[str], default: int = 0) -> int:
+    try:
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return int(value)
+        cleaned = str(value).strip()
+        if not cleaned:
+            return default
+        return int(float(cleaned))
+    except (ValueError, TypeError):
+        return default
+
+
+def _ensure_kill_count_header(sheet):
+    try:
+        headers = sheet.row_values(1)
+    except Exception as header_error:
+        print(f"AVERTISSEMENT: Impossible de lire les en-têtes de la feuille: {header_error}")
+        return
+
+    needs_header = len(headers) <= SHEET_COLUMNS["KILL_COUNT"]
+    if not needs_header and SHEET_COLUMNS["KILL_COUNT"] < len(headers):
+        current_header = headers[SHEET_COLUMNS["KILL_COUNT"]].strip()
+        needs_header = current_header == ""
+
+    if needs_header:
+        try:
+            sheet.update_cell(1, SHEET_COLUMNS["KILL_COUNT"] + 1, "Kills")
+        except Exception as update_error:
+            print(f"AVERTISSEMENT: Impossible de garantir la colonne 'Kills': {update_error}")
 
 
 # Connexion à l'API Google Sheets
@@ -288,6 +322,12 @@ def require_sheet_client():
         )
     return sheet
 
+
+def _status_is_admin(status_value: Optional[str]) -> bool:
+    if not status_value:
+        return False
+    return status_value.strip().lower() == "admin"
+
 # Fonction pour initialiser la colonne "État" si elle n'existe pas
 def initialize_status_column():
     try:
@@ -304,6 +344,9 @@ def initialize_status_column():
             
         if len(headers) <= SHEET_COLUMNS["STATUS"]:
             sheet.update_cell(1, SHEET_COLUMNS["STATUS"] + 1, "État")
+
+        if len(headers) <= SHEET_COLUMNS["KILL_COUNT"]:
+            sheet.update_cell(1, SHEET_COLUMNS["KILL_COUNT"] + 1, "Kills")
         
         # Vérifier si les données des joueurs doivent être initialisées
         data = sheet.get_all_values()
@@ -323,6 +366,9 @@ def initialize_status_column():
             # Initialiser l'état si vide
             if len(row) <= SHEET_COLUMNS["STATUS"] or not row[SHEET_COLUMNS["STATUS"]]:
                 sheet.update_cell(i + 1, SHEET_COLUMNS["STATUS"] + 1, "alive")
+
+            if len(row) <= SHEET_COLUMNS["KILL_COUNT"] or not str(row[SHEET_COLUMNS["KILL_COUNT"]]).strip():
+                sheet.update_cell(i + 1, SHEET_COLUMNS["KILL_COUNT"] + 1, "0")
         
         print("Colonnes et états initialisés avec succès")
             
@@ -359,7 +405,11 @@ def get_player_by_nickname(nickname):
                 "target": row[SHEET_COLUMNS["CURRENT_TARGET"]] if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] and row[SHEET_COLUMNS["CURRENT_TARGET"]] else "",
                 "initial_action": row[SHEET_COLUMNS["INITIAL_ACTION"]] if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] and row[SHEET_COLUMNS["INITIAL_ACTION"]] else "",
                 "action": row[SHEET_COLUMNS["CURRENT_ACTION"]] if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] and row[SHEET_COLUMNS["CURRENT_ACTION"]] else "",
-                "status": row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] and row[SHEET_COLUMNS["STATUS"]] else "alive"
+                "status": row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] and row[SHEET_COLUMNS["STATUS"]] else "alive",
+                "kill_count": _parse_int(
+                    row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
+                    default=0,
+                ),
             }
             return player
     
@@ -516,7 +566,8 @@ def login():
             "nickname": player["nickname"],
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
-            "status": player["status"]
+            "status": player["status"],
+            "kill_count": player.get("kill_count", 0),
         },
         "target": target_info
     }
@@ -576,7 +627,8 @@ def get_me():
             "nickname": player["nickname"],
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
-            "status": player["status"]
+            "status": player["status"],
+            "is_admin": _status_is_admin(player.get("status")),
         },
         "target": target_info
     }
@@ -649,9 +701,9 @@ def kill():
         response = {
             "success": True,
             "message": "Cible tuée avec succès",
-            "target": new_target_info
+            "target": new_target_info,
         }
-        
+
         return jsonify(response)
     except ConnectionError as e:
         return jsonify({"success": False, "message": str(e)}), 503
@@ -665,6 +717,7 @@ def killed():
         return jsonify({"success": False, "message": "Non connecté"}), 401
     try:
         sheet = require_sheet_client()
+        _ensure_kill_count_header(sheet)
         # Récupérer le joueur qui déclare avoir été tué
         player = get_player_by_nickname(session["nickname"])
         
@@ -678,20 +731,27 @@ def killed():
         sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
         
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
-        if player["target"]:
-            # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
-            all_players = get_all_players()
-            assassin = None
-            
-            for p in all_players:
-                if p["target"] and player["nickname"] and p["target"].lower() == player["nickname"].lower():
-                    assassin = p
-                    break
-            
-            # Si on a trouvé l'assassin, lui donner la cible du joueur tué
-            if assassin:
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, player["target"])
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, player["action"])
+        # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
+        all_players = get_all_players()
+        assassin = None
+        
+        for p in all_players:
+            if p["target"] and player["nickname"] and p["target"].lower() == player["nickname"].lower():
+                assassin = p
+                break
+        
+        # Si on a trouvé l'assassin, lui donner la cible du joueur tué et incrémenter son score
+        if assassin:
+            new_target = player.get("target") or ""
+            new_action = player.get("action") or ""
+            sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
+            sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, new_action)
+            current_assassin_kills = _parse_int(assassin.get("kill_count", 0), 0)
+            sheet.update_cell(
+                assassin["row"],
+                SHEET_COLUMNS["KILL_COUNT"] + 1,
+                str(current_assassin_kills + 1),
+            )
         
         # 3. Garder la cible du joueur mort (ne pas vider les champs)
         
@@ -753,6 +813,39 @@ def give_up():
         print(f"Erreur lors de l'abandon: {e}")
         return jsonify({"success": False, "message": f"Erreur lors de l'abandon: {str(e)}"}), 500
 
+
+@app.route("/api/admin/overview", methods=["GET"])
+def admin_overview():
+    if "nickname" not in session:
+        return jsonify({"success": False, "message": "Non connecté"}), 401
+
+    try:
+        current_player = get_player_by_nickname(session["nickname"])
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    if not current_player:
+        return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+
+    if not _status_is_admin(current_player.get("status")):
+        return jsonify({"success": False, "message": "Accès refusé"}), 403
+
+    players = get_all_players()
+    overview = []
+    for player in players:
+        overview.append(
+            {
+                "nickname": player.get("nickname", ""),
+                "status": (player.get("status") or "alive"),
+                "target": player.get("target") or "",
+                "action": player.get("action") or "",
+                "initial_target": player.get("initial_target") or "",
+                "initial_action": player.get("initial_action") or "",
+            }
+        )
+
+    return jsonify({"success": True, "players": overview})
+
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
     sheet = require_sheet_client()
@@ -782,10 +875,41 @@ def get_all_players():
             "target": row[SHEET_COLUMNS["CURRENT_TARGET"]] if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] and row[SHEET_COLUMNS["CURRENT_TARGET"]] else "",
             "initial_action": row[SHEET_COLUMNS["INITIAL_ACTION"]] if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] and row[SHEET_COLUMNS["INITIAL_ACTION"]] else "",
             "action": row[SHEET_COLUMNS["CURRENT_ACTION"]] if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] and row[SHEET_COLUMNS["CURRENT_ACTION"]] else "",
-            "status": status
+            "status": status,
+            "kill_count": _parse_int(
+                row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
+                default=0,
+            ),
         })
     
     return players
+
+
+@app.route("/api/leaderboard", methods=["GET"])
+def get_leaderboard():
+    try:
+        players = get_all_players()
+        leaderboard = []
+        for player in players:
+            leaderboard.append(
+                {
+                    "nickname": player.get("nickname", ""),
+                    "kill_count": _parse_int(player.get("kill_count", 0), 0),
+                    "status": (player.get("status") or "alive").lower(),
+                    "is_admin": (player.get("status") or "").strip().lower() == "admin",
+                    "target": player.get("target") or "",
+                    "action": player.get("action") or "",
+                }
+            )
+
+        leaderboard.sort(key=lambda entry: (-entry["kill_count"], entry["nickname"].lower()))
+
+        return jsonify({"success": True, "leaderboard": leaderboard})
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+    except Exception as e:
+        print(f"Erreur lors de la récupération du leaderboard: {e}")
+        return jsonify({"success": False, "message": "Erreur interne lors du calcul du leaderboard"}), 500
 
 @app.route("/api/logout", methods=["POST"])
 def logout():

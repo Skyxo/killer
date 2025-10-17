@@ -14,9 +14,12 @@
         <header>
             <div class="logo-container">
                 <img src="./client/logo_u56.jpeg" alt="Logo U56" class="logo">
+                <p class="logo-hint">(appuie pour prout)</p>
             </div>
-            <h1>KILLER</h1>
-            <p class="subtitle">Le jeu de l'assassin - Étage U56</p>
+            <h1>
+                <img src="./client/img/Killer.png" alt="Titre Killer" class="title-image">
+            </h1>
+            <p class="subtitle">Sois le dernier survivant du week-end</p>
         </header>
 
         <!-- Formulaire de connexion -->
@@ -24,11 +27,11 @@
             <h2>Krônnexion</h2>
             <form id="login-form">
                 <div class="form-group">
-                    <label for="nickname">Surnom du tueur</label>
+                    <label for="nickname">ptdr t ki ?</label>
                     <input type="text" id="nickname" name="nickname" required>
                 </div>
                 <div class="form-group">
-                    <label for="password">Mot de passe</label>
+                    <label for="password">mdp</label>
                     <input type="password" id="password" name="password" required>
                 </div>
                 <div class="form-group">
@@ -49,13 +52,19 @@
                 </div>
             </div>
 
+            <div class="action-buttons">
+                <button id="killed-btn" class="btn btn-warning">Je suis mort (gros fyot)</button>
+                <button id="give-up-btn" class="btn btn-secondary">J'abandonne (défoukamerde)</button>
+                <button id="logout-btn" class="btn btn-secondary">Dékrônnection</button>
+            </div>
+
             <div class="main-content">
                 <!-- Section de la cible -->
                 <div class="target-info">
-                    <h2>MA CIBLE</h2>
+                    <h2>TA CIBLE</h2>
                     <div id="target-card" class="target-card">
                         <div class="mission-statement">
-                            <p>Tu dois <span id="target-action" class="action"></span> à <span id="target-nickname" class="target-name"></span></p>
+                            <p>Tu dois kill <span id="target-nickname" class="target-name"></span> : <span id="target-action" class="action"></span></p>
                         </div>
                         <div class="target-photos">
                             <div id="target-person-photo-container" class="photo-container">
@@ -70,13 +79,46 @@
                         Vous n'avez pas de cible active. Le jeu est peut-être terminé ou vous êtes le dernier survivant !
                     </div>
                 </div>
-                
-                <!-- Boutons d'action en bas -->
-                <div class="action-buttons">
-                    <button id="killed-btn" class="btn btn-warning">Je suis mort</button>
-                    <button id="give-up-btn" class="btn btn-secondary">J'abandonne</button>
-                    <button id="logout-btn" class="btn btn-secondary">Se dékrônnecter</button>
+
+                <!-- Leaderboard -->
+                <div class="leaderboard-section" id="leaderboard-section">
+                    <h2>Leaderboard des fyots</h2>
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Fyot</th>
+                                <th>Kills</th>
+                                <th>Sadikoi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body"></tbody>
+                    </table>
+                    <div id="leaderboard-empty" class="leaderboard-empty hidden">Pas encore de kills enregistrés.</div>
+                    <div id="leaderboard-error" class="leaderboard-error hidden">Impossible de charger le leaderboard pour le moment.</div>
                 </div>
+
+                    <div class="admin-overview hidden" id="admin-overview">
+                        <div class="admin-overview-header">
+                            <h2>Vue complète des joueurs (admin)</h2>
+                            <button id="admin-refresh" class="btn btn-secondary btn-small">Actualiser</button>
+                        </div>
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-sort-key="nickname">Joueur</th>
+                                    <th>Statut</th>
+                                    <th class="sortable" data-sort-key="target">Cible actuelle</th>
+                                    <th>Action actuelle</th>
+                                    <th class="sortable" data-sort-key="initial_target">Cible initiale</th>
+                                    <th>Action initiale</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-overview-body"></tbody>
+                        </table>
+                        <div id="admin-overview-empty" class="admin-overview-empty hidden">Aucune donnée disponible.</div>
+                        <div id="admin-overview-error" class="admin-overview-error hidden">Lecture des données impossible pour le moment.</div>
+                    </div>
             </div>
         </div>
         

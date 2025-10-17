@@ -96,6 +96,7 @@ Cette application permet de gérer un jeu de Killer où :
    - `Surnom de sa cible`
    - `Action à réaliser`
    - `État` (cette colonne sera ajoutée automatiquement au premier démarrage de l'application)
+   - `Kills` (ajoutée automatiquement si elle n'existe pas, utilisée pour le leaderboard)
    
 3. Partagez votre feuille avec l'adresse email du compte de service :
    - Ouvrez votre feuille Google Sheets
@@ -148,6 +149,10 @@ print(secrets.token_hex(16))
 4. Le système attribue automatiquement la prochaine cible au joueur
 5. Le jeu continue jusqu'à ce qu'il ne reste plus qu'un joueur vivant
 
+Une section "Leaderboard des tueurs" résume automatiquement qui a réalisé le plus d'éliminations et indique l'état (vivant, mort, abandonné, admin) de chaque joueur. En cas d'égalité sur le nombre de kills, l'ordre est alphabétique. Un point de kill n'est comptabilisé qu'au moment où la victime confirme elle-même son élimination via l'interface (bouton « Je suis mort »). Les entrées marquées `admin` affichent également la cible actuelle et l'action à réaliser pour aider au suivi.
+
+Lorsque vous êtes connecté en tant qu'admin (colonne `État` renseignée avec `admin` dans la Google Sheet), une section supplémentaire affiche la cible et l'action de tous les joueurs (ainsi que les valeurs initiales) afin de pouvoir suivre l'ensemble de la partie en temps réel. Cliquez sur les en-têtes « Joueur », « Cible actuelle » ou « Cible initiale » pour trier le tableau par ordre alphabétique (un second clic inverse le sens du tri).
+
 ### 3. Variables d'environnement Gunicorn utiles
 
 - `PORT` : port HTTP d'écoute (par défaut `5000`)
@@ -157,6 +162,32 @@ print(secrets.token_hex(16))
 - `GUNICORN_KEEPALIVE` : durée des connexions keep-alive (par défaut `5` secondes)
 - `GUNICORN_ACCESS_LOG` / `GUNICORN_ERROR_LOG` : chemins de log (par défaut sortie standard)
 - `GUNICORN_LOGLEVEL` : niveau de log (`info`, `debug`, etc.)
+
+### 4. Exécution permanente avec systemd
+
+Pour garder le serveur actif en arrière-plan sur un serveur Linux, vous pouvez utiliser le service systemd fourni (`killer.service`). Les commandes suivantes supposent que le projet est déployé dans `/var/www/killer` et qu'un environnement virtuel `.venv` y est présent.
+
+```bash
+sudo cp /var/www/killer/killer.service /etc/systemd/system/killer.service
+sudo systemctl daemon-reload
+sudo systemctl enable killer.service
+sudo systemctl restart killer.service
+sudo systemctl status killer.service
+```
+
+Surveillez ensuite les journaux spécifiques à l'application :
+
+```bash
+sudo tail -f /var/log/killer.log /var/log/killer.error.log
+```
+
+Pour vérifier que l'application répond correctement depuis la machine, utilisez :
+
+```bash
+curl -f http://127.0.0.1:5000/health
+```
+
+Adapter les chemins et ports si votre installation diffère.
 
 ## Tests Manuels
 
