@@ -221,8 +221,8 @@ def get_sheet_client():
         )
         session_timeout = timeout_seconds if timeout_seconds > 0 else None
         session = AuthorizedSessionWithTimeout(credentials, session_timeout)
-        client = gspread.Client(auth=session)
-        client.session = session
+        client = gspread.Client(auth=credentials, session=session)
+        client.auth = credentials
         sheet_id = os.environ.get("SHEET_ID")
         if not sheet_id:
             print("AVERTISSEMENT: SHEET_ID manquant dans les variables d'environnement.")
