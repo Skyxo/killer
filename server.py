@@ -476,6 +476,10 @@ def find_next_alive_target(nickname, visited=None):
 def index():
     return send_from_directory('client', 'index.html')
 
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory('client', 'img/Killer.png', mimetype='image/png')
+
 @app.route("/<path:path>")
 def static_files(path):
     return send_from_directory('client', path)

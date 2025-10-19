@@ -173,6 +173,17 @@ sudo systemctl daemon-reload
 sudo systemctl enable killer.service
 sudo systemctl restart killer.service
 sudo systemctl status killer.service
+sudo systemctl stop killer.service
+```
+
+Pour tuer un port
+```bash
+
+sudo lsof -i :5000
+sudo ss -ltnp | grep :5000
+sudo kill -9 PID
+
+
 ```
 
 Surveillez ensuite les journaux spécifiques à l'application :
