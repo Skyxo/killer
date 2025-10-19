@@ -572,6 +572,7 @@ def login():
             "feet_photo": player["feet_photo"],
             "status": player["status"],
             "kill_count": player.get("kill_count", 0),
+            "is_admin": _status_is_admin(player.get("status")),
         },
         "target": target_info
     }
@@ -889,6 +890,31 @@ def get_all_players():
     return players
 
 
+def _normalize_status(status_value: Optional[str]) -> str:
+    if not status_value:
+        return "alive"
+    return status_value.strip().lower()
+
+
+def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: bool) -> dict:
+    nickname = player.get("nickname", "") or ""
+    normalized_status = _normalize_status(player.get("status"))
+    person_photo_id = player.get("person_photo", "") or ""
+    return {
+        "nickname": nickname,
+        "person_photo": person_photo_id,
+        "status": normalized_status if include_status else None,
+        "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
+    }
+
+
+def _viewer_can_see_status(viewer_status: Optional[str]) -> bool:
+    normalized = _normalize_status(viewer_status)
+    if normalized == "dead":
+        return True
+    return normalized == "admin"
+
+
 @app.route("/api/leaderboard", methods=["GET"])
 def get_leaderboard():
     try:
@@ -914,6 +940,41 @@ def get_leaderboard():
     except Exception as e:
         print(f"Erreur lors de la récupération du leaderboard: {e}")
         return jsonify({"success": False, "message": "Erreur interne lors du calcul du leaderboard"}), 500
+
+
+@app.route("/api/trombi", methods=["GET"])
+def get_trombi():
+    if "nickname" not in session:
+        return jsonify({"success": False, "message": "Non connecté"}), 401
+
+    try:
+        viewer = get_player_by_nickname(session["nickname"])
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    if not viewer:
+        session.clear()
+        return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+
+    include_status = _viewer_can_see_status(viewer.get("status"))
+
+    try:
+        players = get_all_players()
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in players]
+    entries.sort(key=lambda entry: entry["nickname"].lower())
+
+    return jsonify({
+        "success": True,
+        "players": entries,
+        "viewer": {
+            "nickname": viewer.get("nickname"),
+            "status": _normalize_status(viewer.get("status")),
+            "can_view_status": include_status,
+        },
+    })
 
 @app.route("/api/logout", methods=["POST"])
 def logout():

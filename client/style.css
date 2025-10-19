@@ -263,7 +263,7 @@ input:focus {
     margin-bottom: 30px;
 }
 
-.leaderboard-section {
+.trombi-section {
     background-color: var(--card-background);
     padding: 30px;
     border-radius: 10px;
@@ -271,49 +271,109 @@ input:focus {
     margin-bottom: 30px;
 }
 
-.leaderboard-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-}
-
-.leaderboard-table th,
-.leaderboard-table td {
-    padding: 12px 10px;
-    border-bottom: 1px solid rgba(74, 20, 140, 0.1);
-    text-align: left;
-}
-
-.leaderboard-table thead th {
-    text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 0.08em;
-    color: var(--primary-color);
-    border-bottom: 2px solid rgba(74, 20, 140, 0.2);
-}
-
-.leaderboard-table tbody tr:nth-child(even) {
-    background-color: rgba(106, 27, 154, 0.03);
-}
-
-.leaderboard-table tbody tr.leaderboard-row-self {
-    background-color: rgba(56, 142, 60, 0.12);
-    font-weight: 600;
-}
-
-.leaderboard-table tbody tr.leaderboard-row-admin {
-    background-color: rgba(156, 39, 176, 0.1);
-}
-
-.leaderboard-empty,
-.leaderboard-error {
+.trombi-empty,
+.trombi-error {
     margin-top: 15px;
     font-size: 0.95rem;
     text-align: center;
 }
 
-.leaderboard-error {
+.trombi-error {
     color: var(--error-color);
+}
+
+.trombi-wrapper {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.trombi-list {
+    flex: 1 1 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.trombi-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(74, 20, 140, 0.12);
+    background-color: rgba(255, 255, 255, 0.85);
+    color: var(--text-color);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-align: left;
+}
+
+.trombi-entry:hover,
+.trombi-entry:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 18px rgba(74, 20, 140, 0.12);
+    outline: none;
+}
+
+.trombi-entry.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(106, 27, 154, 0.12);
+}
+
+.trombi-entry-self {
+    border-color: var(--secondary-color);
+    background-color: rgba(156, 39, 176, 0.12);
+    font-weight: 600;
+}
+
+.trombi-details {
+    flex: 1 1 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 320px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+    border: 1px solid rgba(74, 20, 140, 0.1);
+    padding: 20px;
+    text-align: center;
+}
+
+.trombi-photo-container {
+    width: min(320px, 90vw);
+    aspect-ratio: 3 / 4;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 12px 24px rgba(74, 20, 140, 0.18);
+    background-color: rgba(0, 0, 0, 0.05);
+    cursor: zoom-in;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.trombi-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.trombi-placeholder {
+    color: rgba(74, 20, 140, 0.7);
+    font-size: 0.95rem;
+    max-width: 320px;
+}
+
+.trombi-status-info {
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.6);
 }
 
 .status-pill {
@@ -652,6 +712,18 @@ input:focus {
     
     .action-buttons {
         flex-direction: column;
+    }
+
+    .trombi-wrapper {
+        flex-direction: column;
+    }
+
+    .trombi-details {
+        min-height: 260px;
+    }
+
+    .trombi-list {
+        max-height: none;
     }
 }
 

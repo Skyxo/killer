@@ -30,18 +30,23 @@ const newTargetAction = document.getElementById('new-target-action');
 const newTargetPersonPhoto = document.getElementById('new-target-person-photo');
 const newTargetPersonPhotoContainer = document.getElementById('new-target-person-photo-container');
 const closeNotification = document.getElementById('close-notification');
-const leaderboardSection = document.getElementById('leaderboard-section');
-const leaderboardBody = document.getElementById('leaderboard-body');
-const leaderboardEmpty = document.getElementById('leaderboard-empty');
-const leaderboardError = document.getElementById('leaderboard-error');
+const trombiSection = document.getElementById('trombi-section');
+const trombiList = document.getElementById('trombi-list');
+const trombiDetails = document.getElementById('trombi-details');
+const trombiEmpty = document.getElementById('trombi-empty');
+const trombiError = document.getElementById('trombi-error');
 const adminOverviewSection = document.getElementById('admin-overview');
 const adminOverviewBody = document.getElementById('admin-overview-body');
 const adminOverviewEmpty = document.getElementById('admin-overview-empty');
 const adminOverviewError = document.getElementById('admin-overview-error');
 const adminRefreshBtn = document.getElementById('admin-refresh');
 
-let leaderboardIntervalId = null;
+let trombiIntervalId = null;
 let currentPlayerNickname = null;
+let trombiPlayers = [];
+let currentTrombiSelection = null;
+let viewerCanSeeStatus = false;
+let viewerStatus = 'alive';
 let adminOverviewIntervalId = null;
 let currentPlayerIsAdmin = false;
 let adminOverviewData = [];
@@ -95,30 +100,37 @@ function closePhotoModal() {
     }
 }
 
-function startLeaderboardUpdates() {
-    loadLeaderboard();
-    if (leaderboardIntervalId) {
-        clearInterval(leaderboardIntervalId);
+function startTrombiUpdates() {
+    loadTrombi();
+    if (trombiIntervalId) {
+        clearInterval(trombiIntervalId);
     }
-    leaderboardIntervalId = setInterval(loadLeaderboard, 30000);
+    trombiIntervalId = setInterval(loadTrombi, 30000);
 }
 
-function stopLeaderboardUpdates() {
-    if (leaderboardIntervalId) {
-        clearInterval(leaderboardIntervalId);
-        leaderboardIntervalId = null;
+function stopTrombiUpdates() {
+    if (trombiIntervalId) {
+        clearInterval(trombiIntervalId);
+        trombiIntervalId = null;
     }
 }
 
-function resetLeaderboardDisplay() {
-    if (leaderboardBody) {
-        leaderboardBody.innerHTML = '';
+function resetTrombiDisplay() {
+    trombiPlayers = [];
+    currentTrombiSelection = null;
+    viewerCanSeeStatus = false;
+    viewerStatus = 'alive';
+    if (trombiList) {
+        trombiList.innerHTML = '';
     }
-    if (leaderboardEmpty) {
-        leaderboardEmpty.classList.add('hidden');
+    if (trombiDetails) {
+        trombiDetails.innerHTML = '<p class="trombi-placeholder">Sélectionne un joueur pour découvrir son profil.</p>';
     }
-    if (leaderboardError) {
-        leaderboardError.classList.add('hidden');
+    if (trombiEmpty) {
+        trombiEmpty.classList.add('hidden');
+    }
+    if (trombiError) {
+        trombiError.classList.add('hidden');
     }
 }
 
@@ -152,16 +164,16 @@ function resetAdminOverviewDisplay() {
     updateAdminSortIndicators();
 }
 
-function loadLeaderboard() {
-    if (!leaderboardBody) {
+function loadTrombi() {
+    if (!trombiList) {
         return;
     }
 
-    if (leaderboardError) {
-        leaderboardError.classList.add('hidden');
+    if (trombiError) {
+        trombiError.classList.add('hidden');
     }
 
-    fetch('/api/leaderboard')
+    fetch('/api/trombi')
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -169,78 +181,166 @@ function loadLeaderboard() {
             return response.json();
         })
         .then(data => {
-            if (!data || !data.success || !Array.isArray(data.leaderboard)) {
+            if (!data || !data.success || !Array.isArray(data.players)) {
                 throw new Error('Format de réponse invalide');
             }
-            renderLeaderboard(data.leaderboard);
+
+            viewerCanSeeStatus = Boolean(data.viewer && data.viewer.can_view_status);
+            if (data.viewer && typeof data.viewer.status === 'string') {
+                viewerStatus = data.viewer.status;
+            }
+
+            trombiPlayers = data.players.slice();
+            renderTrombi();
         })
         .catch(error => {
-            console.error('Erreur lors du chargement du leaderboard:', error);
-            if (leaderboardError) {
-                leaderboardError.classList.remove('hidden');
+            console.error('Erreur lors du chargement du trombinoscope:', error);
+            if (trombiError) {
+                trombiError.classList.remove('hidden');
             }
-            if (leaderboardEmpty) {
-                leaderboardEmpty.classList.add('hidden');
+            if (trombiEmpty) {
+                trombiEmpty.classList.add('hidden');
             }
         });
 }
 
-function renderLeaderboard(entries) {
-    if (!leaderboardBody) {
+function renderTrombi() {
+    if (!trombiList) {
         return;
     }
 
-    leaderboardBody.innerHTML = '';
+    trombiList.innerHTML = '';
 
-    if (!entries || entries.length === 0) {
-        if (leaderboardEmpty) {
-            leaderboardEmpty.classList.remove('hidden');
+    if (!Array.isArray(trombiPlayers) || trombiPlayers.length === 0) {
+        if (trombiEmpty) {
+            trombiEmpty.classList.remove('hidden');
+        }
+        if (trombiDetails) {
+            trombiDetails.innerHTML = '<p class="trombi-placeholder">Pas encore de joueurs à afficher.</p>';
         }
         return;
     }
 
-    if (leaderboardEmpty) {
-        leaderboardEmpty.classList.add('hidden');
+    if (trombiEmpty) {
+        trombiEmpty.classList.add('hidden');
     }
 
-    entries.forEach((entry, index) => {
-        const row = document.createElement('tr');
-        row.classList.add('leaderboard-row');
+    const currentSelectionName = currentTrombiSelection && currentTrombiSelection.toLowerCase();
 
-        const nickname = (entry.nickname || '').trim();
+    trombiPlayers.forEach(player => {
+        const entryButton = document.createElement('button');
+        entryButton.type = 'button';
+        entryButton.classList.add('trombi-entry');
+
+        const nickname = (player.nickname || '???').trim();
+        entryButton.dataset.nickname = nickname;
+        entryButton.textContent = nickname;
+
         if (currentPlayerNickname && nickname && nickname.toLowerCase() === currentPlayerNickname.toLowerCase()) {
-            row.classList.add('leaderboard-row-self');
+            entryButton.classList.add('trombi-entry-self');
         }
 
-        const positionCell = document.createElement('td');
-        positionCell.textContent = index + 1;
-
-        const nicknameCell = document.createElement('td');
-        nicknameCell.textContent = nickname || '???';
-
-        const killsCell = document.createElement('td');
-        const killCount = Number.parseInt(entry.kill_count, 10);
-        killsCell.textContent = Number.isNaN(killCount) ? '0' : killCount.toString();
-
-        const statusCell = document.createElement('td');
-        const statusSpan = document.createElement('span');
-        const rawStatus = typeof entry.status === 'string' ? entry.status.toLowerCase() : 'alive';
-        const status = ['alive', 'dead', 'gaveup', 'admin'].includes(rawStatus) ? rawStatus : 'alive';
-        statusSpan.classList.add('status-pill', `status-${status}`);
-        statusSpan.textContent = getStatusLabel(status);
-        statusCell.appendChild(statusSpan);
-
-        if (entry.is_admin) {
-            row.classList.add('leaderboard-row-admin');
+        if (currentSelectionName && nickname.toLowerCase() === currentSelectionName) {
+            entryButton.classList.add('selected');
         }
 
-        row.appendChild(positionCell);
-        row.appendChild(nicknameCell);
-        row.appendChild(killsCell);
-        row.appendChild(statusCell);
+        if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
+            const statusChip = document.createElement('span');
+            const normalizedStatus = player.status.toLowerCase();
+            statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
+            statusChip.textContent = getStatusLabel(normalizedStatus);
+            entryButton.appendChild(statusChip);
+        }
 
-        leaderboardBody.appendChild(row);
+        entryButton.addEventListener('click', () => {
+            selectTrombiEntry(nickname);
+        });
+
+        trombiList.appendChild(entryButton);
     });
+
+    if (!currentTrombiSelection && trombiPlayers.length > 0) {
+        selectTrombiEntry(trombiPlayers[0].nickname || '');
+    } else if (currentTrombiSelection) {
+        selectTrombiEntry(currentTrombiSelection);
+    }
+}
+
+function selectTrombiEntry(nickname) {
+    if (!nickname) {
+        return;
+    }
+
+    currentTrombiSelection = nickname;
+
+    if (trombiList) {
+        Array.from(trombiList.children).forEach(child => {
+            if (!child.dataset) {
+                return;
+            }
+            if ((child.dataset.nickname || '').toLowerCase() === nickname.toLowerCase()) {
+                child.classList.add('selected');
+            } else {
+                child.classList.remove('selected');
+            }
+        });
+    }
+
+    const player = trombiPlayers.find(entry => (entry.nickname || '').toLowerCase() === nickname.toLowerCase());
+    renderTrombiDetails(player);
+}
+
+function renderTrombiDetails(player) {
+    if (!trombiDetails) {
+        return;
+    }
+
+    trombiDetails.innerHTML = '';
+
+    if (!player) {
+        trombiDetails.innerHTML = '<p class="trombi-placeholder">Impossible de charger ce profil.</p>';
+        return;
+    }
+
+    const title = document.createElement('h3');
+    title.textContent = player.nickname || '???';
+    title.classList.add('trombi-name-display');
+    trombiDetails.appendChild(title);
+
+    if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
+        const statusBadge = document.createElement('span');
+        statusBadge.classList.add('status-pill', `status-${player.status.toLowerCase()}`);
+        statusBadge.textContent = getStatusLabel(player.status.toLowerCase());
+        statusBadge.setAttribute('aria-label', `Statut: ${getStatusLabel(player.status.toLowerCase())}`);
+        trombiDetails.appendChild(statusBadge);
+    }
+
+    const photoContainer = document.createElement('div');
+    photoContainer.classList.add('trombi-photo-container');
+
+    if (player.person_photo) {
+        const photo = document.createElement('img');
+        photo.classList.add('trombi-photo');
+        photo.src = `https://drive.google.com/thumbnail?id=${player.person_photo}&sz=w600`;
+        photo.alt = `Photo de ${player.nickname || 'joueur'}`;
+        photo.loading = 'lazy';
+        photo.addEventListener('click', () => openPhotoModal(photo.src));
+        photoContainer.appendChild(photo);
+    } else {
+        const placeholder = document.createElement('p');
+        placeholder.classList.add('trombi-placeholder');
+        placeholder.textContent = 'Pas de photo disponible pour ce joueur.';
+        photoContainer.appendChild(placeholder);
+    }
+
+    trombiDetails.appendChild(photoContainer);
+
+    if (viewerCanSeeStatus && player.status && player.status.toLowerCase() === 'dead') {
+        const info = document.createElement('p');
+        info.classList.add('trombi-status-info');
+        info.textContent = 'Ce joueur a été éliminé.';
+        trombiDetails.appendChild(info);
+    }
 }
 
 function loadAdminOverview() {
@@ -591,8 +691,8 @@ function handleLogout() {
  * Affiche le formulaire de connexion
  */
 function showLoginForm() {
-    stopLeaderboardUpdates();
-    resetLeaderboardDisplay();
+    stopTrombiUpdates();
+    resetTrombiDisplay();
     stopAdminOverviewUpdates();
     resetAdminOverviewDisplay();
     currentPlayerIsAdmin = false;
@@ -618,6 +718,7 @@ function showPlayerInterface(data) {
     }
     
     currentPlayerNickname = data.player.nickname || null;
+    viewerStatus = (data.player.status || 'alive').toLowerCase();
     currentPlayerIsAdmin = Boolean(data.player.is_admin);
     loginContainer.classList.add('hidden');
     playerContainer.classList.remove('hidden');
@@ -703,7 +804,7 @@ function showPlayerInterface(data) {
         }
     }
 
-    startLeaderboardUpdates();
+    startTrombiUpdates();
 }
 
 /**
@@ -811,8 +912,9 @@ function handleKilled(e) {
             
             // Ajouter une classe pour indiquer visuellement que le joueur est mort
             playerContainer.classList.add('player-dead');
-
-            loadLeaderboard();
+            viewerStatus = 'dead';
+            viewerCanSeeStatus = true;
+            loadTrombi();
         } else {
             alert(`Erreur: ${data.message}`);
         }
@@ -855,8 +957,9 @@ function handleGiveUp(e) {
             
             // Ajouter une classe pour indiquer visuellement que le joueur a abandonné
             playerContainer.classList.add('player-gave-up');
-
-            loadLeaderboard();
+            viewerStatus = 'gaveup';
+            viewerCanSeeStatus = false;
+            loadTrombi();
         } else {
             alert(`Erreur: ${data.message}`);
         }
