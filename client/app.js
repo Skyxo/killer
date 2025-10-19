@@ -50,13 +50,13 @@ let adminSortHeaders = [];
 
 // Sons de pet disponibles
 const petSounds = [
-    './client/sounds/pet_024.mp3',
-    './client/sounds/sf_pet_10.mp3',
-    './client/sounds/sf_pet_11.mp3',
-    './client/sounds/sf_pet_12.mp3',
-    './client/sounds/sf_pet_13.mp3',
-    './client/sounds/sf_pet_long.mp3',
-    './client/sounds/sf_rot_pet_03.mp3'
+    './client/sounds/pet1.mp3',
+    './client/sounds/pet2.mp3',
+    './client/sounds/pet3.mp3',
+    './client/sounds/pet4.mp3',
+    './client/sounds/pet5.mp3',
+    './client/sounds/pet6.mp3',
+    './client/sounds/pet7.mp3'
 ];
 
 /**

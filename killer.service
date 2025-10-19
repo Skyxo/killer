@@ -6,6 +6,7 @@ After=network.target
 User=root
 WorkingDirectory=/var/www/killer
 Environment="PYTHONUNBUFFERED=1"
+Environment="PORT=8080"
 ExecStart=/var/www/killer/.venv/bin/python server.py
 Restart=always
 RestartSec=5
@@ -15,6 +16,7 @@ Environment="SERVICE_ACCOUNT_FILE=/var/www/killer/service_account.json"
 Environment="SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY"
 Environment="FLASK_SECRET_KEY=hrzdsdcvdbapmwlskneiu"
 Environment="SESSION_FILE_DIR=/var/www/killer/flask_session"
+Environment="PORT=8080"
 Environment="FLASK_ENV=production"
 Environment="USE_CACHE_ON_ERROR=true"
 Environment="FLASK_DEBUG=False"
