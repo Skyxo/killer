@@ -905,6 +905,7 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "person_photo": person_photo_id,
         "status": normalized_status if include_status else None,
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
+        "is_admin": _status_is_admin(player.get("status")),
     }
 
 
@@ -964,7 +965,10 @@ def get_trombi():
         return jsonify({"success": False, "message": str(e)}), 503
 
     entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in players]
-    entries.sort(key=lambda entry: entry["nickname"].lower())
+    entries.sort(key=lambda entry: (
+        0 if entry.get("is_admin") else 1,
+        (entry.get("nickname") or "").lower(),
+    ))
 
     return jsonify({
         "success": True,

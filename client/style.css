@@ -313,6 +313,40 @@ input:focus {
     text-align: left;
 }
 
+.trombi-entry-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    flex: 1;
+}
+
+.trombi-entry-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.trombi-admin-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: rgba(106, 27, 154, 0.15);
+    color: var(--primary-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.trombi-name-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    text-align: center;
+}
+
 .trombi-entry:hover,
 .trombi-entry:focus-visible {
     transform: translateY(-2px);
@@ -665,11 +699,26 @@ input:focus {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+#player-person-photo-container {
+    position: relative;
+}
+
 .player-photo, .target-photo, .new-target-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.3s ease;
+}
+
+.player-mugshot-overlay {
+    position: absolute;
+    inset: 0;
+    top: 75px;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 2;
 }
 
 .player-photo:hover, .target-photo:hover {

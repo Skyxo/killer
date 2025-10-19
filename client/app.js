@@ -191,6 +191,16 @@ function loadTrombi() {
             }
 
             trombiPlayers = data.players.slice();
+            trombiPlayers.sort((a, b) => {
+                const adminA = Boolean(a && a.is_admin);
+                const adminB = Boolean(b && b.is_admin);
+                if (adminA !== adminB) {
+                    return adminA ? -1 : 1;
+                }
+                const nameA = (a && a.nickname ? a.nickname : '').toLowerCase();
+                const nameB = (b && b.nickname ? b.nickname : '').toLowerCase();
+                return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base', ignorePunctuation: true });
+            });
             renderTrombi();
         })
         .catch(error => {
@@ -234,7 +244,20 @@ function renderTrombi() {
 
         const nickname = (player.nickname || '???').trim();
         entryButton.dataset.nickname = nickname;
-        entryButton.textContent = nickname;
+
+        const labelWrapper = document.createElement('span');
+        labelWrapper.classList.add('trombi-entry-label');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.classList.add('trombi-entry-name');
+        nameSpan.textContent = nickname || '???';
+        labelWrapper.appendChild(nameSpan);
+
+        if (player.is_admin) {
+            labelWrapper.appendChild(createAdminBadge());
+        }
+
+        entryButton.appendChild(labelWrapper);
 
         if (currentPlayerNickname && nickname && nickname.toLowerCase() === currentPlayerNickname.toLowerCase()) {
             entryButton.classList.add('trombi-entry-self');
@@ -303,8 +326,17 @@ function renderTrombiDetails(player) {
     }
 
     const title = document.createElement('h3');
-    title.textContent = player.nickname || '???';
     title.classList.add('trombi-name-display');
+
+    const titleName = document.createElement('span');
+    titleName.classList.add('trombi-entry-name');
+    titleName.textContent = player.nickname || '???';
+    title.appendChild(titleName);
+
+    if (player.is_admin) {
+        title.appendChild(createAdminBadge());
+    }
+
     trombiDetails.appendChild(title);
 
     if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
@@ -501,6 +533,14 @@ function renderAdminOverview(players) {
 
         adminOverviewBody.appendChild(row);
     });
+}
+
+function createAdminBadge() {
+    const badge = document.createElement('span');
+    badge.classList.add('trombi-admin-tag');
+    badge.textContent = '(Admin)';
+    badge.setAttribute('aria-label', 'Administrateur');
+    return badge;
 }
 
 function getStatusLabel(status) {
