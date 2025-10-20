@@ -275,6 +275,13 @@ function renderTrombi() {
         nameSpan.textContent = nickname || '???';
         labelWrapper.appendChild(nameSpan);
 
+        if (player.year) {
+            const yearBadge = document.createElement('span');
+            yearBadge.classList.add('trombi-year-badge');
+            yearBadge.textContent = player.year;
+            labelWrapper.appendChild(yearBadge);
+        }
+
         if (player.is_admin) {
             labelWrapper.appendChild(createAdminBadge());
         }
@@ -360,18 +367,51 @@ function renderTrombiDetails(player) {
     titleName.textContent = displayName;
     title.appendChild(titleName);
 
+    if (player.year) {
+        const yearBadge = document.createElement('span');
+        yearBadge.classList.add('trombi-year-badge');
+        yearBadge.textContent = player.year;
+        title.appendChild(yearBadge);
+    }
+
     if (player.is_admin) {
         title.appendChild(createAdminBadge());
     }
 
     trombiDetails.appendChild(title);
 
+    const metaContainer = document.createElement('div');
+    metaContainer.classList.add('trombi-meta');
+    let metaHasContent = false;
+
     if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
         const statusBadge = document.createElement('span');
-        statusBadge.classList.add('status-pill', `status-${player.status.toLowerCase()}`);
-        statusBadge.textContent = getStatusLabel(player.status.toLowerCase());
-        statusBadge.setAttribute('aria-label', `Statut: ${getStatusLabel(player.status.toLowerCase())}`);
-        trombiDetails.appendChild(statusBadge);
+        const normalizedStatus = player.status.toLowerCase();
+        statusBadge.classList.add('status-pill', `status-${normalizedStatus}`);
+        statusBadge.textContent = getStatusLabel(normalizedStatus);
+        statusBadge.setAttribute('aria-label', `Statut: ${getStatusLabel(normalizedStatus)}`);
+        metaContainer.appendChild(statusBadge);
+        metaHasContent = true;
+    }
+
+    const hasFeetPhoto = typeof player.feet_photo === 'string' && player.feet_photo.trim().length > 0;
+    if (hasFeetPhoto) {
+        const feetButton = document.createElement('button');
+        feetButton.type = 'button';
+    feetButton.classList.add('trombi-feet-button', 'btn', 'btn-secondary');
+        feetButton.textContent = 'voir ses pieds';
+        feetButton.addEventListener('click', () => {
+            const feetUrl = getDriveImageUrl(player.feet_photo, 600);
+            if (feetUrl) {
+                openPhotoModal(feetUrl);
+            }
+        });
+        metaContainer.appendChild(feetButton);
+        metaHasContent = true;
+    }
+
+    if (metaHasContent) {
+        trombiDetails.appendChild(metaContainer);
     }
 
     const photoContainer = document.createElement('div');

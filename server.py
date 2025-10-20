@@ -144,19 +144,20 @@ print(f"SHEET_ID: {os.environ.get('SHEET_ID')}")
 SHEET_COLUMNS = {
     "TIMESTAMP": 0,   # Horodateur
     "NICKNAME": 1,    # Surnom (le VRAI, pour pouvoir vous identifier)
-    "PASSWORD": 2,    # Votre mot de passe
-    "PERSON_PHOTO": 3,# Une photo de vous neuillesque
-    "FEET_PHOTO": 4,  # une photo de vos pieds
-    "KRO_ANSWER": 5,  # Combien y a t il de cars dans une kro ?
-    "BEFORE_ANSWER": 6, # Est-ce que c'était mieux avant ?
-    "MESSAGE_ANSWER": 7, # Un petit mot pour vos brasseurs adorés
-    "CHALLENGE_IDEAS": 8, # Idées de défis
-    "INITIAL_TARGET": 9,  # Cible initiale
-    "CURRENT_TARGET": 10, # Cible actuelle
-    "INITIAL_ACTION": 11, # Action initiale
-    "CURRENT_ACTION": 12, # Action actuelle
-    "STATUS": 13,     # État (alive/dead/gaveup)
-    "ADMIN_FLAG": 14, # Indique si le joueur est administrateur (True/False)
+    "YEAR": 2,        # Année (0A, 2A, 3A, etc.)
+    "PASSWORD": 3,    # Votre mot de passe
+    "PERSON_PHOTO": 4,# Une photo de vous neuillesque
+    "FEET_PHOTO": 5,  # une photo de vos pieds
+    "KRO_ANSWER": 6,  # Combien y a t il de cars dans une kro ?
+    "BEFORE_ANSWER": 7, # Est-ce que c'était mieux avant ?
+    "MESSAGE_ANSWER": 8, # Un petit mot pour vos brasseurs adorés
+    "CHALLENGE_IDEAS": 9, # Idées de défis
+    "INITIAL_TARGET": 10,  # Cible initiale
+    "CURRENT_TARGET": 11, # Cible actuelle
+    "INITIAL_ACTION": 12, # Action initiale
+    "CURRENT_ACTION": 13, # Action actuelle
+    "STATUS": 14,     # État (alive/dead/gaveup)
+    "ADMIN_FLAG": 15, # Indique si le joueur est administrateur (True/False)
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -856,13 +857,21 @@ def get_all_players():
         nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
         nickname = nickname_raw.strip()
 
+        # Ignorer les lignes sans surnom valide
+        if not nickname:
+            continue
+
         status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
         status = _normalize_status(status_raw)
         admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
 
+        year_raw = (row[SHEET_COLUMNS["YEAR"]] or "").strip() if len(row) > SHEET_COLUMNS["YEAR"] else ""
+        year = year_raw.upper() if year_raw else ""
+
         players.append({
             "row": i,
             "nickname": nickname,
+            "year": year,
             "password": (row[SHEET_COLUMNS["PASSWORD"]] or "").strip() if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
             "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
             "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
@@ -895,9 +904,12 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
     nickname = player.get("nickname", "") or ""
     normalized_status = _normalize_status(player.get("status"))
     person_photo_id = player.get("person_photo", "") or ""
+    year = player.get("year", "") or ""
     return {
         "nickname": nickname,
+        "year": year,
         "person_photo": person_photo_id,
+        "feet_photo": player.get("feet_photo", "") or "",
         "status": normalized_status if include_status else None,
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
         "is_admin": bool(player.get("is_admin")),

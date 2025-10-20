@@ -340,12 +340,40 @@ input:focus {
     letter-spacing: 0.02em;
 }
 
+.trombi-year-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background-color: rgba(142, 36, 170, 0.2);
+    color: var(--accent-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
 .trombi-name-display {
     display: flex;
     align-items: center;
     gap: 10px;
     justify-content: center;
     text-align: center;
+}
+
+.trombi-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.trombi-feet-button {
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    text-transform: none;
+    letter-spacing: 0.02em;
 }
 
 .trombi-entry:hover,
