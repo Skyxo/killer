@@ -73,6 +73,19 @@ function playRandomPetSound() {
     sound.play();
 }
 
+function getDriveImageUrl(fileId, size = 600) {
+    if (!fileId || typeof fileId !== 'string') {
+        return '';
+    }
+    const trimmedId = fileId.trim();
+    if (!trimmedId) {
+        return '';
+    }
+    const encodedId = encodeURIComponent(trimmedId);
+    const cacheBuster = Math.floor(Date.now() / 60000);
+    return `https://drive.google.com/uc?export=download&id=${encodedId}&cache=${cacheBuster}`;
+}
+
 // Fonction pour ouvrir la modal avec une image
 function openPhotoModal(imageSrc) {
     if (!modalImage || !photoModal) {
@@ -366,7 +379,7 @@ function renderTrombiDetails(player) {
     if (player.person_photo) {
         const photo = document.createElement('img');
         photo.classList.add('trombi-photo');
-        photo.src = `https://drive.google.com/thumbnail?id=${player.person_photo}&sz=w600`;
+    photo.src = getDriveImageUrl(player.person_photo, 600);
     photo.alt = `Photo de ${displayName}`;
         photo.loading = 'lazy';
         photo.addEventListener('click', () => openPhotoModal(photo.src));
@@ -805,7 +818,7 @@ function showPlayerInterface(data) {
     if (playerPersonPhoto && data.player.person_photo) {
         try {
             // Utiliser le format d'intégration d'image Google Drive
-            playerPersonPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.person_photo}&sz=w500`;
+            playerPersonPhoto.src = getDriveImageUrl(data.player.person_photo, 500);
             if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.remove('hidden');
         } catch (error) {
             console.error("Erreur lors du chargement de la photo du joueur:", error);
@@ -830,7 +843,7 @@ function showPlayerInterface(data) {
     // Le code est conservé pour la compatibilité avec les anciennes versions
     try {
         if (playerFeetPhoto && data.player.feet_photo) {
-            playerFeetPhoto.src = `https://drive.google.com/thumbnail?id=${data.player.feet_photo}&sz=w500`;
+            playerFeetPhoto.src = getDriveImageUrl(data.player.feet_photo, 500);
         }
     } catch (error) {
         console.error("Photo des pieds ignorée:", error);
@@ -885,7 +898,7 @@ function updateTargetInfo(target) {
             // Vérifier si l'ID est valide (au moins 10 caractères)
             if (target.person_photo && target.person_photo.length > 10) {
                 // Utiliser le format d'intégration d'image Google Drive
-                targetPersonPhoto.src = `https://drive.google.com/thumbnail?id=${target.person_photo}&sz=w500`;
+                targetPersonPhoto.src = getDriveImageUrl(target.person_photo, 500);
                 if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.remove('hidden');
             } else {
                 console.warn("ID de photo invalide:", target.person_photo);
@@ -905,7 +918,7 @@ function updateTargetInfo(target) {
             // Vérifier si l'ID est valide (au moins 10 caractères)
             if (target.feet_photo && target.feet_photo.length > 10) {
                 // Utiliser le format d'intégration d'image Google Drive
-                targetFeetPhoto.src = `https://drive.google.com/thumbnail?id=${target.feet_photo}&sz=w500`;
+                targetFeetPhoto.src = getDriveImageUrl(target.feet_photo, 500);
                 if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.remove('hidden');
             } else {
                 console.warn("ID de photo de pieds invalide:", target.feet_photo);

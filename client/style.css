@@ -212,12 +212,13 @@ input:focus {
 }
 
 .btn-warning {
-    background-color: #FFD54F;
-    color: #5D4037;
+    background-color: #D32F2F;
+    color: #FFFFFF;
 }
 
-.btn-warning:hover {
-    background-color: #FFCA28;
+.btn-warning:hover,
+.btn-warning:focus-visible {
+    background-color: #B71C1C;
 }
 
 .btn-success {
