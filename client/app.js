@@ -591,7 +591,6 @@ document.addEventListener('DOMContentLoaded', () => {
     [playerPersonPhoto, targetPersonPhoto, targetFeetPhoto, newTargetPersonPhoto, modalImage].forEach(img => {
         if (img) {
             img.referrerPolicy = 'no-referrer';
-            img.crossOrigin = 'anonymous';
         }
     });
 
