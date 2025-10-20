@@ -436,9 +436,23 @@ input:focus {
     max-width: 320px;
 }
 
+.trombi-photo-error {
+    color: var(--error-color);
+    font-weight: 500;
+}
+
 .trombi-status-info {
     font-size: 0.9rem;
     color: rgba(0, 0, 0, 0.6);
+}
+
+.photo-error {
+    border: 2px solid var(--error-color);
+    background-color: rgba(211, 47, 47, 0.05);
+}
+
+.photo-error img {
+    opacity: 0.3;
 }
 
 .status-pill {

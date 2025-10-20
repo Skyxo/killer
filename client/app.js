@@ -420,10 +420,21 @@ function renderTrombiDetails(player) {
     if (player.person_photo) {
         const photo = document.createElement('img');
         photo.classList.add('trombi-photo');
-    photo.src = getDriveImageUrl(player.person_photo, 600);
-    photo.alt = `Photo de ${displayName}`;
+        photo.src = getDriveImageUrl(player.person_photo, 600);
+        photo.alt = `Photo de ${displayName}`;
         photo.loading = 'lazy';
         photo.addEventListener('click', () => openPhotoModal(photo.src));
+        
+        // Détecter les erreurs de chargement (permissions Drive manquantes)
+        photo.addEventListener('error', () => {
+            photoContainer.innerHTML = '';
+            const errorMsg = document.createElement('p');
+            errorMsg.classList.add('trombi-placeholder', 'trombi-photo-error');
+            errorMsg.textContent = '⚠️ Photo inaccessible (permissions Google Drive manquantes)';
+            errorMsg.title = 'Cette photo nécessite une authentification Google. Demandez au propriétaire de la rendre publique.';
+            photoContainer.appendChild(errorMsg);
+        });
+        
         photoContainer.appendChild(photo);
     } else {
         const placeholder = document.createElement('p');
@@ -886,6 +897,16 @@ function showPlayerInterface(data) {
         try {
             // Utiliser le format d'intégration d'image Google Drive
             playerPersonPhoto.src = getDriveImageUrl(data.player.person_photo, 500);
+            
+            // Détecter les erreurs de chargement (permissions Drive manquantes)
+            playerPersonPhoto.onerror = () => {
+                console.warn("Photo du joueur inaccessible (permissions Google Drive):", data.player.person_photo);
+                if (playerPersonPhotoContainer) {
+                    playerPersonPhotoContainer.classList.add('photo-error');
+                    playerPersonPhotoContainer.title = 'Photo inaccessible - permissions Google Drive manquantes';
+                }
+            };
+            
             if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.remove('hidden');
         } catch (error) {
             console.error("Erreur lors du chargement de la photo du joueur:", error);
@@ -966,6 +987,16 @@ function updateTargetInfo(target) {
             if (target.person_photo && target.person_photo.length > 10) {
                 // Utiliser le format d'intégration d'image Google Drive
                 targetPersonPhoto.src = getDriveImageUrl(target.person_photo, 500);
+                
+                // Détecter les erreurs de chargement (permissions Drive manquantes)
+                targetPersonPhoto.onerror = () => {
+                    console.warn("Photo de la cible inaccessible (permissions Google Drive):", target.person_photo);
+                    if (targetPersonPhotoContainer) {
+                        targetPersonPhotoContainer.classList.add('photo-error');
+                        targetPersonPhotoContainer.title = 'Photo inaccessible - permissions Google Drive manquantes';
+                    }
+                };
+                
                 if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.remove('hidden');
             } else {
                 console.warn("ID de photo invalide:", target.person_photo);
