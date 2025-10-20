@@ -241,8 +241,9 @@ input:focus {
 /* Styles pour l'interface du joueur */
 .header-profile {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
     align-items: center;
+    gap: 15px;
     padding: 15px;
     margin-bottom: 20px;
 }
@@ -251,7 +252,7 @@ input:focus {
     font-size: 1.8rem;
     margin: 0;
     color: var(--primary-color);
-    flex-grow: 1;
+    text-align: center;
 }
 
 .photo-small {
@@ -262,6 +263,10 @@ input:focus {
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     margin-bottom: 30px;
+}
+
+.target-info {
+    margin-top: 40px;
 }
 
 .trombi-section {
@@ -645,16 +650,6 @@ input:focus {
     font-weight: 700;
     font-size: 1.1rem;
     color: var(--accent-color);
-}
-
-#logout-btn {
-    margin-top: 20px;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
 }
 
 .action-buttons {
