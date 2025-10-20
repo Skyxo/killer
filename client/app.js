@@ -83,7 +83,7 @@ function getDriveImageUrl(fileId, size = 600) {
     }
     const encodedId = encodeURIComponent(trimmedId);
     const cacheBuster = Math.floor(Date.now() / 60000);
-    return `https://drive.google.com/uc?export=download&id=${encodedId}&cache=${cacheBuster}`;
+    return `https://drive.googleusercontent.com/uc?id=${encodedId}&export=view&cache=${cacheBuster}`;
 }
 
 // Fonction pour ouvrir la modal avec une image
@@ -588,6 +588,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Vérifier si l'utilisateur est connecté
     checkLoggedIn();
     
+    [playerPersonPhoto, targetPersonPhoto, targetFeetPhoto, newTargetPersonPhoto, modalImage].forEach(img => {
+        if (img) {
+            img.referrerPolicy = 'no-referrer';
+            img.crossOrigin = 'anonymous';
+        }
+    });
+
     // Ajouter l'événement de clic sur le logo U56
     const logo = document.querySelector('.logo');
     if (logo) {
