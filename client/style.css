@@ -452,6 +452,12 @@ input:focus {
     margin-bottom: 30px;
 }
 
+.admin-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .admin-overview-header {
     display: flex;
     justify-content: space-between;
@@ -468,6 +474,7 @@ input:focus {
 .admin-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 640px;
 }
 
 .admin-table th,
@@ -476,7 +483,8 @@ input:focus {
     border-bottom: 1px solid rgba(74, 20, 140, 0.1);
     text-align: left;
     vertical-align: top;
-    word-break: break-word;
+    word-break: normal;
+    white-space: nowrap;
 }
 
 .admin-table thead th {
@@ -514,6 +522,45 @@ input:focus {
 
 .admin-table tbody tr:nth-child(even) {
     background-color: rgba(106, 27, 154, 0.03);
+}
+
+.admin-table tbody tr.admin-row-status {
+    transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+}
+
+.admin-table tbody tr.admin-row-status-alive {
+    background-color: rgba(56, 142, 60, 0.12);
+}
+
+.admin-table tbody tr.admin-row-status-dead {
+    background-color: rgba(211, 47, 47, 0.16);
+}
+
+.admin-table tbody tr.admin-row-status-gaveup {
+    background-color: rgba(117, 117, 117, 0.16);
+}
+
+.admin-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 12px;
+    min-width: 80px;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+}
+
+.admin-inline-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--primary-color);
+}
+
+.admin-table td:nth-child(4),
+.admin-table td:nth-child(6) {
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .admin-overview-empty,
@@ -776,6 +823,14 @@ input:focus {
 
     .trombi-list {
         max-height: none;
+    }
+
+    .admin-overview {
+        padding: 20px;
+    }
+
+    .admin-table {
+        min-width: 560px;
     }
 }
 

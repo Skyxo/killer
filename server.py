@@ -156,7 +156,7 @@ SHEET_COLUMNS = {
     "INITIAL_ACTION": 11, # Action initiale
     "CURRENT_ACTION": 12, # Action actuelle
     "STATUS": 13,     # État (alive/dead/gaveup)
-    "KILL_COUNT": 14, # Nombre de kills réalisés
+    "ADMIN_FLAG": 14, # Indique si le joueur est administrateur (True/False)
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -211,23 +211,17 @@ def _parse_int(value: Optional[str], default: int = 0) -> int:
         return default
 
 
-def _ensure_kill_count_header(sheet):
-    try:
-        headers = sheet.row_values(1)
-    except Exception as header_error:
-        print(f"AVERTISSEMENT: Impossible de lire les en-têtes de la feuille: {header_error}")
-        return
-
-    needs_header = len(headers) <= SHEET_COLUMNS["KILL_COUNT"]
-    if not needs_header and SHEET_COLUMNS["KILL_COUNT"] < len(headers):
-        current_header = headers[SHEET_COLUMNS["KILL_COUNT"]].strip()
-        needs_header = current_header == ""
-
-    if needs_header:
-        try:
-            sheet.update_cell(1, SHEET_COLUMNS["KILL_COUNT"] + 1, "Kills")
-        except Exception as update_error:
-            print(f"AVERTISSEMENT: Impossible de garantir la colonne 'Kills': {update_error}")
+def _parse_admin_flag(value: Optional[str]) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    cleaned = str(value).strip().lower()
+    if not cleaned:
+        return False
+    return cleaned in {"1", "true", "yes", "on"}
 
 
 # Connexion à l'API Google Sheets
@@ -323,11 +317,6 @@ def require_sheet_client():
     return sheet
 
 
-def _status_is_admin(status_value: Optional[str]) -> bool:
-    if not status_value:
-        return False
-    return status_value.strip().lower() == "admin"
-
 # Fonction pour initialiser la colonne "État" si elle n'existe pas
 def initialize_status_column():
     try:
@@ -345,8 +334,8 @@ def initialize_status_column():
         if len(headers) <= SHEET_COLUMNS["STATUS"]:
             sheet.update_cell(1, SHEET_COLUMNS["STATUS"] + 1, "État")
 
-        if len(headers) <= SHEET_COLUMNS["KILL_COUNT"]:
-            sheet.update_cell(1, SHEET_COLUMNS["KILL_COUNT"] + 1, "Kills")
+        if len(headers) <= SHEET_COLUMNS["ADMIN_FLAG"]:
+            sheet.update_cell(1, SHEET_COLUMNS["ADMIN_FLAG"] + 1, "Admin")
         
         # Vérifier si les données des joueurs doivent être initialisées
         data = sheet.get_all_values()
@@ -367,8 +356,8 @@ def initialize_status_column():
             if len(row) <= SHEET_COLUMNS["STATUS"] or not row[SHEET_COLUMNS["STATUS"]]:
                 sheet.update_cell(i + 1, SHEET_COLUMNS["STATUS"] + 1, "alive")
 
-            if len(row) <= SHEET_COLUMNS["KILL_COUNT"] or not str(row[SHEET_COLUMNS["KILL_COUNT"]]).strip():
-                sheet.update_cell(i + 1, SHEET_COLUMNS["KILL_COUNT"] + 1, "0")
+            if len(row) <= SHEET_COLUMNS["ADMIN_FLAG"] or not str(row[SHEET_COLUMNS["ADMIN_FLAG"]]).strip():
+                sheet.update_cell(i + 1, SHEET_COLUMNS["ADMIN_FLAG"] + 1, "False")
         
         print("Colonnes et états initialisés avec succès")
             
@@ -401,6 +390,7 @@ def get_player_by_nickname(nickname):
         if sheet_nickname.lower() == target_nickname:
             password = row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else ""
             status_value = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
+            admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
 
             player = {
                 "row": i,
@@ -416,11 +406,8 @@ def get_player_by_nickname(nickname):
                 "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
                 "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
                 "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
-                "status": status_value.strip().lower() if isinstance(status_value, str) and status_value.strip() else "alive",
-                "kill_count": _parse_int(
-                    row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
-                    default=0,
-                ),
+                "status": _normalize_status(status_value),
+                "is_admin": _parse_admin_flag(admin_flag_value),
             }
             return player
 
@@ -582,8 +569,7 @@ def login():
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
             "status": player["status"],
-            "kill_count": player.get("kill_count", 0),
-            "is_admin": _status_is_admin(player.get("status")),
+            "is_admin": bool(player.get("is_admin")),
         },
         "target": target_info
     }
@@ -644,7 +630,7 @@ def get_me():
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
             "status": player["status"],
-            "is_admin": _status_is_admin(player.get("status")),
+            "is_admin": bool(player.get("is_admin")),
         },
         "target": target_info
     }
@@ -733,7 +719,6 @@ def killed():
         return jsonify({"success": False, "message": "Non connecté"}), 401
     try:
         sheet = require_sheet_client()
-        _ensure_kill_count_header(sheet)
         # Récupérer le joueur qui déclare avoir été tué
         player = get_player_by_nickname(session["nickname"])
         
@@ -762,12 +747,6 @@ def killed():
             new_action = player.get("action") or ""
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, new_action)
-            current_assassin_kills = _parse_int(assassin.get("kill_count", 0), 0)
-            sheet.update_cell(
-                assassin["row"],
-                SHEET_COLUMNS["KILL_COUNT"] + 1,
-                str(current_assassin_kills + 1),
-            )
         
         # 3. Garder la cible du joueur mort (ne pas vider les champs)
         
@@ -843,7 +822,7 @@ def admin_overview():
     if not current_player:
         return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
 
-    if not _status_is_admin(current_player.get("status")):
+    if not current_player.get("is_admin"):
         return jsonify({"success": False, "message": "Accès refusé"}), 403
 
     players = get_all_players()
@@ -857,6 +836,7 @@ def admin_overview():
                 "action": player.get("action") or "",
                 "initial_target": player.get("initial_target") or "",
                 "initial_action": player.get("initial_action") or "",
+                "is_admin": bool(player.get("is_admin")),
             }
         )
 
@@ -877,7 +857,8 @@ def get_all_players():
         nickname = nickname_raw.strip()
 
         status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
-        status = status_raw.strip().lower() if isinstance(status_raw, str) and status_raw.strip() else "alive"
+        status = _normalize_status(status_raw)
+        admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
 
         players.append({
             "row": i,
@@ -894,10 +875,7 @@ def get_all_players():
             "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
             "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
             "status": status,
-            "kill_count": _parse_int(
-                row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
-                default=0,
-            ),
+            "is_admin": _parse_admin_flag(admin_flag_value),
         })
 
     return players
@@ -906,7 +884,11 @@ def get_all_players():
 def _normalize_status(status_value: Optional[str]) -> str:
     if not status_value:
         return "alive"
-    return status_value.strip().lower()
+    normalized = status_value.strip().lower()
+    if normalized in {"alive", "dead", "gaveup"}:
+        return normalized
+    # Ancienne valeur "admin" ou autres variantes
+    return "alive"
 
 
 def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: bool) -> dict:
@@ -918,15 +900,15 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "person_photo": person_photo_id,
         "status": normalized_status if include_status else None,
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
-        "is_admin": _status_is_admin(player.get("status")),
+        "is_admin": bool(player.get("is_admin")),
     }
 
 
-def _viewer_can_see_status(viewer_status: Optional[str]) -> bool:
+def _viewer_can_see_status(viewer_status: Optional[str], is_admin: bool) -> bool:
     normalized = _normalize_status(viewer_status)
     if normalized == "dead":
         return True
-    return normalized == "admin"
+    return bool(is_admin)
 
 
 @app.route("/api/leaderboard", methods=["GET"])
@@ -940,7 +922,7 @@ def get_leaderboard():
                     "nickname": player.get("nickname", ""),
                     "kill_count": _parse_int(player.get("kill_count", 0), 0),
                     "status": (player.get("status") or "alive").lower(),
-                    "is_admin": (player.get("status") or "").strip().lower() == "admin",
+                    "is_admin": bool(player.get("is_admin")),
                     "target": player.get("target") or "",
                     "action": player.get("action") or "",
                 }
@@ -970,7 +952,7 @@ def get_trombi():
         session.clear()
         return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
 
-    include_status = _viewer_can_see_status(viewer.get("status"))
+    include_status = _viewer_can_see_status(viewer.get("status"), viewer.get("is_admin"))
 
     try:
         players = get_all_players()
@@ -990,6 +972,7 @@ def get_trombi():
             "nickname": viewer.get("nickname"),
             "status": _normalize_status(viewer.get("status")),
             "can_view_status": include_status,
+            "is_admin": bool(viewer.get("is_admin")),
         },
     })
 

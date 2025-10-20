@@ -98,19 +98,21 @@
                             <h2>Vue complète des joueurs (admin)</h2>
                             <button id="admin-refresh" class="btn btn-secondary btn-small">Actualiser</button>
                         </div>
-                        <table class="admin-table">
-                            <thead>
-                                <tr>
+                        <div class="admin-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
                                     <th class="sortable" data-sort-key="nickname">Joueur</th>
                                     <th>Statut</th>
                                     <th class="sortable" data-sort-key="target">Cible actuelle</th>
                                     <th>Action actuelle</th>
                                     <th class="sortable" data-sort-key="initial_target">Cible initiale</th>
                                     <th>Action initiale</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-overview-body"></tbody>
-                        </table>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-overview-body"></tbody>
+                            </table>
+                        </div>
                         <div id="admin-overview-empty" class="admin-overview-empty hidden">Aucune donnée disponible.</div>
                         <div id="admin-overview-error" class="admin-overview-error hidden">Lecture des données impossible pour le moment.</div>
                     </div>

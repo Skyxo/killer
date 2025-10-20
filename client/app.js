@@ -533,11 +533,33 @@ function renderAdminOverview(players) {
     players.forEach(player => {
         const row = document.createElement('tr');
 
+        const rawStatus = typeof player.status === 'string' ? player.status.trim().toLowerCase() : '';
+        const knownStatuses = ['alive', 'dead', 'gaveup'];
+        const statusKey = knownStatuses.includes(rawStatus) ? rawStatus : 'unknown';
+
+        if (statusKey !== 'unknown') {
+            row.classList.add('admin-row-status', `admin-row-status-${statusKey}`);
+        }
+
         const nicknameCell = document.createElement('td');
-        nicknameCell.textContent = player.nickname || '???';
+        const baseName = (player.nickname || '???').trim() || '???';
+        nicknameCell.textContent = baseName;
+        if (player.is_admin) {
+            const adminHint = document.createElement('span');
+            adminHint.classList.add('admin-inline-label');
+            adminHint.textContent = ' (admin)';
+            nicknameCell.appendChild(adminHint);
+        }
 
         const statusCell = document.createElement('td');
-        statusCell.textContent = player.status || 'inconnu';
+        if (statusKey !== 'unknown') {
+            const statusBadge = document.createElement('span');
+            statusBadge.classList.add('status-pill', `status-${statusKey}`, 'admin-status-pill');
+            statusBadge.textContent = getStatusLabel(statusKey);
+            statusCell.appendChild(statusBadge);
+        } else {
+            statusCell.textContent = player.status || 'Inconnu';
+        }
 
         const targetCell = document.createElement('td');
         targetCell.textContent = player.target || '—';
@@ -576,8 +598,6 @@ function getStatusLabel(status) {
             return 'Mort';
         case 'gaveup':
             return 'A abandonné';
-        case 'admin':
-            return 'Admin';
         case 'alive':
         default:
             return 'Vivant';
