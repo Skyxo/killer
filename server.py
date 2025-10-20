@@ -158,6 +158,7 @@ SHEET_COLUMNS = {
     "CURRENT_ACTION": 13, # Action actuelle
     "STATUS": 14,     # État (alive/dead/gaveup)
     "ADMIN_FLAG": 15, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 16,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -868,6 +869,8 @@ def get_all_players():
         year_raw = (row[SHEET_COLUMNS["YEAR"]] or "").strip() if len(row) > SHEET_COLUMNS["YEAR"] else ""
         year = year_raw.upper() if year_raw else ""
 
+        phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
+
         players.append({
             "row": i,
             "nickname": nickname,
@@ -885,6 +888,7 @@ def get_all_players():
             "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
             "status": status,
             "is_admin": _parse_admin_flag(admin_flag_value),
+            "phone": phone,
         })
 
     return players
@@ -905,6 +909,7 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
     normalized_status = _normalize_status(player.get("status"))
     person_photo_id = player.get("person_photo", "") or ""
     year = player.get("year", "") or ""
+    phone = player.get("phone", "") or ""
     return {
         "nickname": nickname,
         "year": year,
@@ -913,6 +918,7 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "status": normalized_status if include_status else None,
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
         "is_admin": bool(player.get("is_admin")),
+        "phone": phone,
     }
 
 

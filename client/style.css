@@ -308,6 +308,54 @@ input:focus {
     box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
 }
 
+.trombi-category-btn.disabled,
+.trombi-category-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background-color: #e0e0e0;
+    color: #999;
+    border-color: #ccc;
+}
+
+.trombi-category-btn.disabled:hover,
+.trombi-category-btn:disabled:hover {
+    background-color: #e0e0e0;
+    transform: none;
+}
+
+.trombi-category-hint {
+    display: none;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: rgba(74, 20, 140, 0.8);
+    margin-top: 8px;
+    text-align: center;
+}
+
+.trombi-category-hint.visible {
+    display: block;
+}
+
+.trombi-phone {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    margin-top: 8px;
+    font-weight: 500;
+}
+
+.trombi-phone a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.trombi-phone a:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+    transform: scale(1.05);
+}
+
 .trombi-empty,
 .trombi-error {
     margin-top: 15px;

@@ -224,6 +224,7 @@ function loadTrombi() {
                 const nameB = (b && b.nickname ? b.nickname : '').toLowerCase();
                 return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base', ignorePunctuation: true });
             });
+            updateTrombiCategoryButtons();
             renderTrombi();
         })
         .catch(error => {
@@ -235,6 +236,24 @@ function loadTrombi() {
                 trombiEmpty.classList.add('hidden');
             }
         });
+}
+
+function updateTrombiCategoryButtons() {
+    const categoryButtons = document.querySelectorAll('.trombi-category-btn');
+    const isAlive = viewerStatus === 'alive';
+    
+    categoryButtons.forEach(btn => {
+        const category = btn.dataset.category;
+        
+        // Désactiver "Vivants" et "Morts" si le joueur est vivant
+        if ((category === 'alive' || category === 'dead') && isAlive) {
+            btn.disabled = true;
+            btn.classList.add('disabled');
+        } else {
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+        }
+    });
 }
 
 function renderTrombi() {
@@ -414,6 +433,20 @@ function renderTrombiDetails(player) {
 
     trombiDetails.appendChild(title);
 
+    // Afficher le numéro de téléphone pour les admins
+    if (player.is_admin && player.phone) {
+        const phoneContainer = document.createElement('p');
+        phoneContainer.classList.add('trombi-phone');
+        
+        const phoneLink = document.createElement('a');
+        phoneLink.href = `tel:${player.phone}`;
+        phoneLink.textContent = `📞 ${player.phone}`;
+        phoneLink.title = 'Appeler ce numéro';
+        
+        phoneContainer.appendChild(phoneLink);
+        trombiDetails.appendChild(phoneContainer);
+    }
+
     const metaContainer = document.createElement('div');
     metaContainer.classList.add('trombi-meta');
     let metaHasContent = false;
@@ -482,7 +515,7 @@ function renderTrombiDetails(player) {
     if (viewerCanSeeStatus && player.status && player.status.toLowerCase() === 'dead') {
         const info = document.createElement('p');
         info.classList.add('trombi-status-info');
-        info.textContent = 'Ce joueur a été éliminé.';
+        info.textContent = 'Ce 0A est un gros fyot.';
         trombiDetails.appendChild(info);
     }
 }
@@ -712,6 +745,12 @@ document.addEventListener('DOMContentLoaded', () => {
     categoryButtons.forEach(btn => {
         btn.addEventListener('click', (event) => {
             event.preventDefault();
+            
+            // Ignorer le clic si le bouton est désactivé
+            if (btn.disabled || btn.classList.contains('disabled')) {
+                return;
+            }
+            
             const category = btn.dataset.category;
             if (category && category !== currentTrombiCategory) {
                 currentTrombiCategory = category;
@@ -719,6 +758,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Mettre à jour l'état actif des boutons
                 categoryButtons.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+                
+                // Mettre à jour la visibilité du texte d'aide pour la catégorie admin
+                const adminHint = document.getElementById('admin-category-hint');
+                if (adminHint) {
+                    if (category === 'admin') {
+                        adminHint.classList.add('visible');
+                    } else {
+                        adminHint.classList.remove('visible');
+                    }
+                }
                 
                 // Re-rendre le trombinoscope avec le filtre
                 renderTrombi();
