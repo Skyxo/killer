@@ -83,7 +83,8 @@ function getDriveImageUrl(fileId, size = 600) {
     }
     const encodedId = encodeURIComponent(trimmedId);
     const cacheBuster = Math.floor(Date.now() / 60000);
-    return `https://drive.googleusercontent.com/uc?id=${encodedId}&export=view&cache=${cacheBuster}`;
+    const sizeParam = Number.isFinite(size) && size > 0 ? `&sz=w${Math.round(size)}` : '';
+    return `https://drive.google.com/thumbnail?id=${encodedId}${sizeParam}&cache=${cacheBuster}`;
 }
 
 // Fonction pour ouvrir la modal avec une image
