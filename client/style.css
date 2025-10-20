@@ -117,6 +117,7 @@ h1 {
     font-size: 1.3rem;
     font-style: italic;
     font-weight: 500;
+    margin-bottom: 15px;
 }
 
 h2 {
@@ -243,9 +244,9 @@ input:focus {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
-    padding: 15px;
-    margin-bottom: 20px;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 15px;
 }
 
 #player-nickname-header {
@@ -262,11 +263,52 @@ input:focus {
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    margin-bottom: 10px;
 }
 
 .target-info {
     margin-top: 40px;
+}
+
+/* Message pour les joueurs morts */
+.dead-player-info {
+    background: linear-gradient(135deg, rgba(106, 27, 154, 0.1), rgba(156, 39, 176, 0.05));
+    border: 2px solid var(--secondary-color);
+    border-radius: 15px;
+    padding: 30px;
+    margin: 30px 0;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dead-player-info-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.dead-player-message {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 15px;
+}
+
+.alive-count {
+    font-size: 1.2rem;
+    color: var(--text-color);
+    margin-bottom: 10px;
+}
+
+.alive-count strong {
+    color: var(--accent-color);
+    font-size: 1.3rem;
+}
+
+.dead-player-hint {
+    font-size: 0.95rem;
+    color: rgba(74, 20, 140, 0.7);
+    font-style: italic;
+    margin-top: 15px;
 }
 
 .trombi-section {
@@ -766,7 +808,7 @@ input:focus {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    margin-top: 40px;
+    margin-top: 15px;
 }
 
 .action-buttons button {
@@ -958,6 +1000,141 @@ input:focus {
     margin: 15px auto;
 }
 
+/* Styles pour le podium */
+.podium-section {
+    background-color: var(--card-background);
+    padding: 40px 30px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    margin-top: 30px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.podium-section h2 {
+    font-size: 2rem;
+    margin-bottom: 40px;
+    color: var(--primary-color);
+}
+
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.podium-place {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 200px;
+}
+
+.podium-1 {
+    order: 2;
+}
+
+.podium-2 {
+    order: 1;
+}
+
+.podium-3 {
+    order: 3;
+}
+
+.podium-rank {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.podium-1 .podium-rank {
+    font-size: 3rem;
+    color: #FFD700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.podium-content {
+    background-color: white;
+    border-radius: 15px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+.podium-photo-container {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 15px;
+    border: 4px solid var(--secondary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.podium-1 .podium-photo-container {
+    width: 180px;
+    height: 180px;
+    border-color: #FFD700;
+    border-width: 5px;
+}
+
+.podium-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.podium-photo:hover {
+    transform: scale(1.1);
+}
+
+.podium-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 5px;
+}
+
+.podium-1 .podium-name {
+    font-size: 1.4rem;
+}
+
+.podium-year {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+    font-weight: 500;
+}
+
+.podium-pedestal {
+    width: 100%;
+    border-radius: 5px 5px 0 0;
+    background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.podium-pedestal-1 {
+    height: 150px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+}
+
+.podium-pedestal-2 {
+    height: 120px;
+    background: linear-gradient(135deg, #C0C0C0, #A8A8A8);
+}
+
+.podium-pedestal-3 {
+    height: 90px;
+    background: linear-gradient(135deg, #CD7F32, #B87333);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     .container {
@@ -1008,6 +1185,32 @@ input:focus {
 
     .admin-table {
         min-width: 560px;
+    }
+
+    .podium-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .podium-place {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .podium-1 {
+        order: 1;
+    }
+
+    .podium-2 {
+        order: 2;
+    }
+
+    .podium-3 {
+        order: 3;
+    }
+
+    .podium-pedestal {
+        display: none;
     }
 }
 

@@ -59,8 +59,57 @@
             </div>
 
             <div class="main-content">
+                <!-- Podium des vainqueurs -->
+                <div class="podium-section hidden" id="podium-section">
+                    <h2>🏆 Podium des Vainqueurs 🏆</h2>
+                    <div class="podium-container">
+                        <div class="podium-place podium-2" id="podium-place-2">
+                            <div class="podium-rank">2</div>
+                            <div class="podium-content">
+                                <div class="podium-photo-container">
+                                    <img class="podium-photo" src="" alt="2ème place">
+                                </div>
+                                <div class="podium-name"></div>
+                                <div class="podium-year"></div>
+                            </div>
+                            <div class="podium-pedestal podium-pedestal-2"></div>
+                        </div>
+                        <div class="podium-place podium-1" id="podium-place-1">
+                            <div class="podium-rank">👑</div>
+                            <div class="podium-content">
+                                <div class="podium-photo-container">
+                                    <img class="podium-photo" src="" alt="1ère place">
+                                </div>
+                                <div class="podium-name"></div>
+                                <div class="podium-year"></div>
+                            </div>
+                            <div class="podium-pedestal podium-pedestal-1"></div>
+                        </div>
+                        <div class="podium-place podium-3" id="podium-place-3">
+                            <div class="podium-rank">3</div>
+                            <div class="podium-content">
+                                <div class="podium-photo-container">
+                                    <img class="podium-photo" src="" alt="3ème place">
+                                </div>
+                                <div class="podium-name"></div>
+                                <div class="podium-year"></div>
+                            </div>
+                            <div class="podium-pedestal podium-pedestal-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message info pour les joueurs morts -->
+                <div class="dead-player-info hidden" id="dead-player-info">
+                    <div class="dead-player-info-content">
+                        <p class="dead-player-message">💀 Tu es éliminé... mais reste branché !</p>
+                        <p class="alive-count" id="alive-count-message">Il reste <strong>X joueurs vivants</strong></p>
+                        <p class="dead-player-hint">Le podium s'affichera dès qu'un vainqueur sera désigné 🏆</p>
+                    </div>
+                </div>
+
                 <!-- Section de la cible -->
-                <div class="target-info">
+                <div class="target-info" id="target-info-section">
                     <h2>TA CIBLE</h2>
                     <div id="target-card" class="target-card">
                         <div class="mission-statement">

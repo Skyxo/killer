@@ -13,6 +13,8 @@ const targetNickname = document.getElementById('target-nickname');
 const targetAction = document.getElementById('target-action');
 const targetPersonPhoto = document.getElementById('target-person-photo');
 const targetPersonPhotoContainer = document.getElementById('target-person-photo-container');
+const targetInfoSection = document.getElementById('target-info-section');
+const actionButtons = document.querySelector('.action-buttons');
 // Éléments pour la modale
 const photoModal = document.getElementById('photo-modal');
 const modalImage = document.getElementById('modal-image');
@@ -38,6 +40,9 @@ const adminOverviewBody = document.getElementById('admin-overview-body');
 const adminOverviewEmpty = document.getElementById('admin-overview-empty');
 const adminOverviewError = document.getElementById('admin-overview-error');
 const adminRefreshBtn = document.getElementById('admin-refresh');
+const deadPlayerInfo = document.getElementById('dead-player-info');
+const aliveCountMessage = document.getElementById('alive-count-message');
+const podiumSection = document.getElementById('podium-section');
 
 let trombiIntervalId = null;
 let currentPlayerNickname = null;
@@ -116,10 +121,14 @@ function closePhotoModal() {
 
 function startTrombiUpdates() {
     loadTrombi();
+    loadPodium();
     if (trombiIntervalId) {
         clearInterval(trombiIntervalId);
     }
-    trombiIntervalId = setInterval(loadTrombi, 30000);
+    trombiIntervalId = setInterval(() => {
+        loadTrombi();
+        loadPodium();
+    }, 30000);
 }
 
 function stopTrombiUpdates() {
@@ -236,6 +245,7 @@ function loadTrombi() {
                 return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base', ignorePunctuation: true });
             });
             updateTrombiCategoryButtons();
+            updateDeadPlayerInfo();
             renderTrombi();
         })
         .catch(error => {
@@ -266,6 +276,21 @@ function updateTrombiCategoryButtons() {
             btn.classList.remove('disabled');
         }
     });
+}
+
+function updateDeadPlayerInfo() {
+    if (!deadPlayerInfo || !aliveCountMessage) return;
+    
+    const isDead = viewerStatus === 'dead' || viewerStatus === 'gaveup';
+    
+    if (isDead && trombiPlayers) {
+        // Compter les joueurs vivants
+        const aliveCount = trombiPlayers.filter(p => p.status === 'alive').length;
+        aliveCountMessage.textContent = `Il reste ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} vivant${aliveCount > 1 ? 's' : ''}`;
+        deadPlayerInfo.classList.remove('hidden');
+    } else {
+        deadPlayerInfo.classList.add('hidden');
+    }
 }
 
 function renderTrombi() {
@@ -751,6 +776,100 @@ function getStatusLabel(status) {
     }
 }
 
+/**
+ * Charge et affiche le podium si le jeu est terminé
+ */
+function loadPodium() {
+    if (!podiumSection) {
+        return;
+    }
+
+    fetch('/api/podium')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data || !data.success) {
+                throw new Error('Format de réponse invalide');
+            }
+
+            if (data.game_over && data.podium && data.podium.length > 0) {
+                renderPodium(data.podium);
+                podiumSection.classList.remove('hidden');
+                // Cacher la section cible, le message mort et les boutons d'action si le jeu est terminé
+                if (targetInfoSection) {
+                    targetInfoSection.classList.add('hidden');
+                }
+                if (deadPlayerInfo) {
+                    deadPlayerInfo.classList.add('hidden');
+                }
+                if (actionButtons) {
+                    actionButtons.classList.add('hidden');
+                }
+            } else {
+                podiumSection.classList.add('hidden');
+                // Afficher la section cible si le jeu continue (sauf si le joueur est mort)
+                if (targetInfoSection && viewerStatus === 'alive') {
+                    targetInfoSection.classList.remove('hidden');
+                }
+                // Afficher les boutons d'action si le joueur est vivant
+                if (actionButtons && viewerStatus === 'alive') {
+                    actionButtons.classList.remove('hidden');
+                }
+                // Mettre à jour l'affichage du message mort
+                updateDeadPlayerInfo();
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement du podium:', error);
+            podiumSection.classList.add('hidden');
+        });
+}
+
+/**
+ * Affiche le podium des vainqueurs
+ */
+function renderPodium(podium) {
+    if (!podiumSection) {
+        return;
+    }
+
+    podium.forEach(player => {
+        const placeElement = document.getElementById(`podium-place-${player.rank}`);
+        if (!placeElement) return;
+
+        const photoElement = placeElement.querySelector('.podium-photo');
+        const nameElement = placeElement.querySelector('.podium-name');
+        const yearElement = placeElement.querySelector('.podium-year');
+
+        if (photoElement && player.person_photo) {
+            const photoUrl = getDriveImageUrl(player.person_photo, 300);
+            photoElement.src = photoUrl;
+            photoElement.alt = `Photo de ${player.nickname}`;
+            
+            // Rendre la photo cliquable pour l'agrandir
+            photoElement.onclick = () => openPhotoModal(photoUrl);
+            
+            // Gérer les erreurs de chargement
+            photoElement.onerror = () => {
+                photoElement.src = '';
+                photoElement.alt = 'Photo non disponible';
+            };
+        }
+
+        if (nameElement) {
+            nameElement.textContent = player.nickname || '???';
+        }
+
+        if (yearElement && player.year) {
+            yearElement.textContent = player.year;
+        }
+    });
+}
+
 // Vérifier si l'utilisateur est connecté au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
     // Vérifier si l'utilisateur est connecté
@@ -988,6 +1107,9 @@ function showLoginForm() {
     if (adminOverviewSection) {
         adminOverviewSection.classList.add('hidden');
     }
+    if (podiumSection) {
+        podiumSection.classList.add('hidden');
+    }
     currentPlayerNickname = null;
     playerContainer.classList.add('hidden');
     loginContainer.classList.remove('hidden');
@@ -1020,19 +1142,25 @@ function showPlayerInterface(data) {
     
     // Gérer l'état du joueur (mort, vivant, abandonné)
     if (data.player.status && data.player.status.toLowerCase() === "dead") {
-        // Le joueur est mort, désactiver les boutons
+        // Le joueur est mort, désactiver et cacher les boutons et la section cible
         if (killedBtn) killedBtn.disabled = true;
         if (giveUpBtn) giveUpBtn.disabled = true;
+        if (actionButtons) actionButtons.classList.add('hidden');
+        if (targetInfoSection) targetInfoSection.classList.add('hidden');
         playerContainer.classList.add('player-dead');
     } else if (data.player.status && data.player.status.toLowerCase() === "gaveup") {
-        // Le joueur a abandonné, désactiver les boutons
+        // Le joueur a abandonné, désactiver et cacher les boutons et la section cible
         if (killedBtn) killedBtn.disabled = true;
         if (giveUpBtn) giveUpBtn.disabled = true;
+        if (actionButtons) actionButtons.classList.add('hidden');
+        if (targetInfoSection) targetInfoSection.classList.add('hidden');
         playerContainer.classList.add('player-gave-up');
     } else {
-        // Le joueur est vivant, activer les boutons
+        // Le joueur est vivant, activer les boutons et afficher la section cible
         if (killedBtn) killedBtn.disabled = false;
         if (giveUpBtn) giveUpBtn.disabled = false;
+        if (actionButtons) actionButtons.classList.remove('hidden');
+        if (targetInfoSection) targetInfoSection.classList.remove('hidden');
         playerContainer.classList.remove('player-dead');
         playerContainer.classList.remove('player-gave-up');
     }
@@ -1248,15 +1376,20 @@ function handleKilled(e) {
             noTargetMessage.textContent = "Tu t'es pas géré gros fyot. La str continue sans toi !";
             noTargetMessage.classList.remove('hidden');
             
-            // Désactiver les boutons d'action
+            // Désactiver et cacher les boutons d'action
             killedBtn.disabled = true;
             giveUpBtn.disabled = true;
+            if (actionButtons) actionButtons.classList.add('hidden');
+            
+            // Cacher la section cible
+            if (targetInfoSection) targetInfoSection.classList.add('hidden');
             
             // Ajouter une classe pour indiquer visuellement que le joueur est mort
             playerContainer.classList.add('player-dead');
             viewerStatus = 'dead';
             viewerCanSeeStatus = true;
             loadTrombi();
+            loadPodium();
         } else {
             alert(`Erreur: ${data.message}`);
         }
@@ -1293,9 +1426,13 @@ function handleGiveUp(e) {
             noTargetMessage.textContent = "Vous avez abandonné le jeu. Merci d'avoir participé!";
             noTargetMessage.classList.remove('hidden');
             
-            // Désactiver les boutons d'action
+            // Désactiver et cacher les boutons d'action
             killedBtn.disabled = true;
             giveUpBtn.disabled = true;
+            if (actionButtons) actionButtons.classList.add('hidden');
+            
+            // Cacher la section cible
+            if (targetInfoSection) targetInfoSection.classList.add('hidden');
             
             // Ajouter une classe pour indiquer visuellement que le joueur a abandonné
             playerContainer.classList.add('player-gave-up');

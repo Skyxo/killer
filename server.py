@@ -844,6 +844,49 @@ def admin_overview():
 
     return jsonify({"success": True, "players": overview})
 
+@app.route("/api/podium", methods=["GET"])
+def get_podium():
+    """Retourne le podium des 3 derniers joueurs (vainqueurs potentiels)"""
+    if "nickname" not in session:
+        return jsonify({"success": False, "message": "Non connecté"}), 401
+
+    try:
+        players = get_all_players()
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    # Filtrer seulement les joueurs vivants
+    alive_players = [p for p in players if (p.get("status") or "alive").lower() == "alive"]
+    
+    # Vérifier si le jeu est terminé (1 ou moins de joueurs vivants)
+    game_over = len(alive_players) <= 1
+    
+    if not game_over:
+        return jsonify({"success": True, "game_over": False, "podium": []})
+    
+    # Le jeu est terminé, créer le podium
+    # On prend les 3 derniers joueurs vivants ou morts (ordre inversé d'élimination)
+    # Pour simplifier, on prend les joueurs vivants en premier, puis les derniers morts
+    dead_players = [p for p in players if (p.get("status") or "alive").lower() == "dead"]
+    gaveup_players = [p for p in players if (p.get("status") or "alive").lower() == "gaveup"]
+    
+    # Créer le podium : vivants d'abord (gagnants), puis morts récents
+    podium_players = alive_players + dead_players
+    
+    # Prendre les 3 premiers pour le podium
+    podium = []
+    for i, player in enumerate(podium_players[:3]):
+        podium.append({
+            "rank": i + 1,
+            "nickname": player.get("nickname", ""),
+            "person_photo": player.get("person_photo", ""),
+            "feet_photo": player.get("feet_photo", ""),
+            "year": player.get("year", ""),
+            "status": player.get("status", "alive")
+        })
+    
+    return jsonify({"success": True, "game_over": True, "podium": podium})
+
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
     sheet = require_sheet_client()
