@@ -190,7 +190,15 @@ function loadTrombi() {
                 viewerStatus = data.viewer.status;
             }
 
-            trombiPlayers = data.players.slice();
+            trombiPlayers = data.players
+                .map(player => {
+                    const nickname = typeof player.nickname === 'string' ? player.nickname.trim() : '';
+                    return {
+                        ...player,
+                        nickname,
+                    };
+                });
+
             trombiPlayers.sort((a, b) => {
                 const adminA = Boolean(a && a.is_admin);
                 const adminB = Boolean(b && b.is_admin);
@@ -290,18 +298,21 @@ function renderTrombi() {
 }
 
 function selectTrombiEntry(nickname) {
-    if (!nickname) {
+    const normalizedNickname = (nickname || '').trim();
+
+    if (!normalizedNickname) {
         return;
     }
 
-    currentTrombiSelection = nickname;
+    currentTrombiSelection = normalizedNickname;
 
     if (trombiList) {
         Array.from(trombiList.children).forEach(child => {
             if (!child.dataset) {
                 return;
             }
-            if ((child.dataset.nickname || '').toLowerCase() === nickname.toLowerCase()) {
+            const childNickname = (child.dataset.nickname || '').trim().toLowerCase();
+            if (childNickname === normalizedNickname.toLowerCase()) {
                 child.classList.add('selected');
             } else {
                 child.classList.remove('selected');
@@ -309,7 +320,7 @@ function selectTrombiEntry(nickname) {
         });
     }
 
-    const player = trombiPlayers.find(entry => (entry.nickname || '').toLowerCase() === nickname.toLowerCase());
+    const player = trombiPlayers.find(entry => (entry.nickname || '').trim().toLowerCase() === normalizedNickname.toLowerCase());
     renderTrombiDetails(player);
 }
 
@@ -328,9 +339,11 @@ function renderTrombiDetails(player) {
     const title = document.createElement('h3');
     title.classList.add('trombi-name-display');
 
+    const displayName = (player.nickname || '???').trim() || '???';
+
     const titleName = document.createElement('span');
     titleName.classList.add('trombi-entry-name');
-    titleName.textContent = player.nickname || '???';
+    titleName.textContent = displayName;
     title.appendChild(titleName);
 
     if (player.is_admin) {
@@ -354,7 +367,7 @@ function renderTrombiDetails(player) {
         const photo = document.createElement('img');
         photo.classList.add('trombi-photo');
         photo.src = `https://drive.google.com/thumbnail?id=${player.person_photo}&sz=w600`;
-        photo.alt = `Photo de ${player.nickname || 'joueur'}`;
+    photo.alt = `Photo de ${displayName}`;
         photo.loading = 'lazy';
         photo.addEventListener('click', () => openPhotoModal(photo.src));
         photoContainer.appendChild(photo);
@@ -757,7 +770,8 @@ function showPlayerInterface(data) {
         return;
     }
     
-    currentPlayerNickname = data.player.nickname || null;
+    const normalizedPlayerNickname = typeof data.player.nickname === 'string' ? data.player.nickname.trim() : '';
+    currentPlayerNickname = normalizedPlayerNickname || null;
     viewerStatus = (data.player.status || 'alive').toLowerCase();
     currentPlayerIsAdmin = Boolean(data.player.is_admin);
     loginContainer.classList.add('hidden');
@@ -765,7 +779,7 @@ function showPlayerInterface(data) {
     
     // Informations du joueur
     if (playerNicknameHeader) {
-        playerNicknameHeader.textContent = data.player.nickname || "Joueur";
+        playerNicknameHeader.textContent = normalizedPlayerNickname || "Joueur";
     }
     
     // Gérer l'état du joueur (mort, vivant, abandonné)

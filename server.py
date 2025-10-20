@@ -386,33 +386,44 @@ def initialize_status_column():
 def get_player_by_nickname(nickname):
     sheet = require_sheet_client()
     data = sheet.get_all_values()
-    
+
+    target_nickname = (nickname or "").strip().lower()
+
     # Ignorer la ligne d'en-tête
     for i, row in enumerate(data[1:], 2):
+        if len(row) <= SHEET_COLUMNS["NICKNAME"]:
+            continue
+
+        sheet_nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
+        sheet_nickname = sheet_nickname_raw.strip()
+
         # Comparaison insensible à la casse pour le surnom
-        if len(row) > SHEET_COLUMNS["NICKNAME"] and row[SHEET_COLUMNS["NICKNAME"]].lower() == nickname.lower():
+        if sheet_nickname.lower() == target_nickname:
+            password = row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else ""
+            status_value = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
+
             player = {
                 "row": i,
-                "nickname": row[SHEET_COLUMNS["NICKNAME"]],
-                "password": row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
+                "nickname": sheet_nickname,
+                "password": password.strip() if isinstance(password, str) else password,
                 "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
                 "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
-                "kro_answer": row[SHEET_COLUMNS["KRO_ANSWER"]] if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
-                "before_answer": row[SHEET_COLUMNS["BEFORE_ANSWER"]] if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
-                "message": row[SHEET_COLUMNS["MESSAGE_ANSWER"]] if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
-                "challenge_ideas": row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-                "initial_target": row[SHEET_COLUMNS["INITIAL_TARGET"]] if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] and row[SHEET_COLUMNS["INITIAL_TARGET"]] else "",
-                "target": row[SHEET_COLUMNS["CURRENT_TARGET"]] if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] and row[SHEET_COLUMNS["CURRENT_TARGET"]] else "",
-                "initial_action": row[SHEET_COLUMNS["INITIAL_ACTION"]] if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] and row[SHEET_COLUMNS["INITIAL_ACTION"]] else "",
-                "action": row[SHEET_COLUMNS["CURRENT_ACTION"]] if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] and row[SHEET_COLUMNS["CURRENT_ACTION"]] else "",
-                "status": row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] and row[SHEET_COLUMNS["STATUS"]] else "alive",
+                "kro_answer": (row[SHEET_COLUMNS["KRO_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
+                "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
+                "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
+                "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
+                "initial_target": (row[SHEET_COLUMNS["INITIAL_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] else "",
+                "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
+                "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
+                "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
+                "status": status_value.strip().lower() if isinstance(status_value, str) and status_value.strip() else "alive",
                 "kill_count": _parse_int(
                     row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
                     default=0,
                 ),
             }
             return player
-    
+
     return None
 
 # Extraire l'ID de Google Drive à partir d'une URL
@@ -861,32 +872,34 @@ def get_all_players():
     for i, row in enumerate(data[1:], 2):
         if len(row) <= SHEET_COLUMNS["NICKNAME"]:
             continue  # Ignorer les lignes incomplètes
-            
-        status = "alive"
-        if len(row) > SHEET_COLUMNS["STATUS"]:
-            status = row[SHEET_COLUMNS["STATUS"]] if row[SHEET_COLUMNS["STATUS"]] else "alive"
-            
+
+        nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
+        nickname = nickname_raw.strip()
+
+        status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
+        status = status_raw.strip().lower() if isinstance(status_raw, str) and status_raw.strip() else "alive"
+
         players.append({
             "row": i,
-            "nickname": row[SHEET_COLUMNS["NICKNAME"]],
-            "password": row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
+            "nickname": nickname,
+            "password": (row[SHEET_COLUMNS["PASSWORD"]] or "").strip() if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
             "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
             "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
-            "kro_answer": row[SHEET_COLUMNS["KRO_ANSWER"]] if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
-            "before_answer": row[SHEET_COLUMNS["BEFORE_ANSWER"]] if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
-            "message": row[SHEET_COLUMNS["MESSAGE_ANSWER"]] if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
-            "challenge_ideas": row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-            "initial_target": row[SHEET_COLUMNS["INITIAL_TARGET"]] if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] and row[SHEET_COLUMNS["INITIAL_TARGET"]] else "",
-            "target": row[SHEET_COLUMNS["CURRENT_TARGET"]] if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] and row[SHEET_COLUMNS["CURRENT_TARGET"]] else "",
-            "initial_action": row[SHEET_COLUMNS["INITIAL_ACTION"]] if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] and row[SHEET_COLUMNS["INITIAL_ACTION"]] else "",
-            "action": row[SHEET_COLUMNS["CURRENT_ACTION"]] if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] and row[SHEET_COLUMNS["CURRENT_ACTION"]] else "",
+            "kro_answer": (row[SHEET_COLUMNS["KRO_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
+            "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
+            "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
+            "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
+            "initial_target": (row[SHEET_COLUMNS["INITIAL_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] else "",
+            "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
+            "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
+            "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
             "status": status,
             "kill_count": _parse_int(
                 row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else 0,
                 default=0,
             ),
         })
-    
+
     return players
 
 
