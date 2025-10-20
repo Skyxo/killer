@@ -277,6 +277,37 @@ input:focus {
     margin-bottom: 30px;
 }
 
+.trombi-categories {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.trombi-category-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--secondary-color);
+    background-color: transparent;
+    color: var(--primary-color);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: capitalize;
+}
+
+.trombi-category-btn:hover {
+    background-color: rgba(156, 39, 176, 0.1);
+    transform: translateY(-1px);
+}
+
+.trombi-category-btn.active {
+    background-color: var(--secondary-color);
+    color: white;
+    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+}
+
 .trombi-empty,
 .trombi-error {
     margin-top: 15px;

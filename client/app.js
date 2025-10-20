@@ -52,6 +52,7 @@ let currentPlayerIsAdmin = false;
 let adminOverviewData = [];
 let adminOverviewSort = { column: null, direction: 'asc' };
 let adminSortHeaders = [];
+let currentTrombiCategory = 'all';
 
 // Sons de pet disponibles
 const petSounds = [
@@ -257,9 +258,35 @@ function renderTrombi() {
         trombiEmpty.classList.add('hidden');
     }
 
+    // Filtrer selon la catégorie sélectionnée
+    const filteredPlayers = trombiPlayers.filter(player => {
+        if (currentTrombiCategory === 'all') {
+            return true;
+        } else if (currentTrombiCategory === 'alive') {
+            const status = (player.status || 'alive').toLowerCase();
+            return status === 'alive';
+        } else if (currentTrombiCategory === 'dead') {
+            const status = (player.status || 'alive').toLowerCase();
+            return status === 'dead';
+        } else if (currentTrombiCategory === 'admin') {
+            return player.is_admin === true;
+        }
+        return true;
+    });
+
+    if (filteredPlayers.length === 0) {
+        if (trombiEmpty) {
+            trombiEmpty.classList.remove('hidden');
+        }
+        if (trombiDetails) {
+            trombiDetails.innerHTML = '<p class="trombi-placeholder">Aucun joueur dans cette catégorie.</p>';
+        }
+        return;
+    }
+
     const currentSelectionName = currentTrombiSelection && currentTrombiSelection.toLowerCase();
 
-    trombiPlayers.forEach(player => {
+    filteredPlayers.forEach(player => {
         const entryButton = document.createElement('button');
         entryButton.type = 'button';
         entryButton.classList.add('trombi-entry');
@@ -311,10 +338,17 @@ function renderTrombi() {
         trombiList.appendChild(entryButton);
     });
 
-    if (!currentTrombiSelection && trombiPlayers.length > 0) {
-        selectTrombiEntry(trombiPlayers[0].nickname || '');
+    if (!currentTrombiSelection && filteredPlayers.length > 0) {
+        selectTrombiEntry(filteredPlayers[0].nickname || '');
     } else if (currentTrombiSelection) {
-        selectTrombiEntry(currentTrombiSelection);
+        const isCurrentInFiltered = filteredPlayers.some(p => 
+            (p.nickname || '').trim().toLowerCase() === currentTrombiSelection.toLowerCase()
+        );
+        if (isCurrentInFiltered) {
+            selectTrombiEntry(currentTrombiSelection);
+        } else if (filteredPlayers.length > 0) {
+            selectTrombiEntry(filteredPlayers[0].nickname || '');
+        }
     }
 }
 
@@ -672,6 +706,25 @@ document.addEventListener('DOMContentLoaded', () => {
         logo.addEventListener('click', playRandomPetSound);
         logo.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
     }
+
+    // Configurer les boutons de catégorie du trombinoscope
+    const categoryButtons = document.querySelectorAll('.trombi-category-btn');
+    categoryButtons.forEach(btn => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const category = btn.dataset.category;
+            if (category && category !== currentTrombiCategory) {
+                currentTrombiCategory = category;
+                
+                // Mettre à jour l'état actif des boutons
+                categoryButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Re-rendre le trombinoscope avec le filtre
+                renderTrombi();
+            }
+        });
+    });
     
     // Configurer les événements pour la modale des photos avec vérifications
     if (playerPersonPhoto) {
