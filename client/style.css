@@ -592,6 +592,37 @@ input:focus {
     margin-bottom: 15px;
 }
 
+.admin-categories {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.admin-category-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--secondary-color);
+    background-color: transparent;
+    color: var(--secondary-color);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-category-btn:hover {
+    background-color: rgba(156, 39, 176, 0.1);
+    transform: translateY(-1px);
+}
+
+.admin-category-btn.active {
+    background-color: var(--secondary-color);
+    color: white;
+    box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+}
+
 .btn-small {
     padding: 8px 14px;
     font-size: 0.9rem;
@@ -742,6 +773,36 @@ input:focus {
     width: 100%;
     padding: 15px;
     font-size: 1.1rem;
+}
+
+/* Bouton pour afficher/masquer les pieds de la cible */
+.feet-toggle-btn {
+    display: block;
+    margin: 15px auto 10px;
+    padding: 10px 20px;
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.feet-toggle-btn:hover {
+    background-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.feet-toggle-btn:active {
+    transform: translateY(0);
+}
+
+.feet-toggle-btn.hidden {
+    display: none;
 }
 
 /* Style pour la fenêtre modale des photos */
@@ -939,7 +1000,7 @@ input:focus {
 
     .trombi-list {
         max-height: none;
-    }
+    }   
 
     .admin-overview {
         padding: 20px;

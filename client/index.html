@@ -70,9 +70,6 @@
                             <div id="target-person-photo-container" class="photo-container">
                                 <img id="target-person-photo" src="" alt="Photo de la cible" class="target-photo">
                             </div>
-                            <div id="target-feet-photo-container" class="photo-container hidden">
-                                <img id="target-feet-photo" src="" alt="Photo des pieds de la cible" class="target-photo">
-                            </div>
                         </div>
                     </div>
                     <div id="no-target-message" class="hidden">
@@ -104,6 +101,12 @@
                         <div class="admin-overview-header">
                             <h2>Vue complète des joueurs (admin)</h2>
                             <button id="admin-refresh" class="btn btn-secondary btn-small">Actualiser</button>
+                        </div>
+                        <div class="admin-categories">
+                            <button type="button" class="admin-category-btn active" data-admin-category="all">Tous</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="alive">Vivants</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="dead">Morts</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="gaveup">Abandonnés</button>
                         </div>
                         <div class="admin-table-container">
                             <table class="admin-table">

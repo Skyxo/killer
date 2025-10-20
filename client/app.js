@@ -12,9 +12,7 @@ const playerFeetPhotoContainer = null; // N'est plus dans le nouveau design
 const targetNickname = document.getElementById('target-nickname');
 const targetAction = document.getElementById('target-action');
 const targetPersonPhoto = document.getElementById('target-person-photo');
-const targetFeetPhoto = document.getElementById('target-feet-photo');
 const targetPersonPhotoContainer = document.getElementById('target-person-photo-container');
-const targetFeetPhotoContainer = document.getElementById('target-feet-photo-container');
 // Éléments pour la modale
 const photoModal = document.getElementById('photo-modal');
 const modalImage = document.getElementById('modal-image');
@@ -53,6 +51,7 @@ let adminOverviewData = [];
 let adminOverviewSort = { column: null, direction: 'asc' };
 let adminSortHeaders = [];
 let currentTrombiCategory = 'all';
+let currentAdminCategory = 'all';
 
 // Sons de pet disponibles
 const petSounds = [
@@ -176,6 +175,18 @@ function resetAdminOverviewDisplay() {
     }
     adminOverviewData = [];
     adminOverviewSort = { column: null, direction: 'asc' };
+    currentAdminCategory = 'all';
+    
+    // Réinitialiser les boutons de catégorie
+    const adminCategoryButtons = document.querySelectorAll('.admin-category-btn');
+    adminCategoryButtons.forEach(btn => {
+        if (btn.dataset.adminCategory === 'all') {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
     updateAdminSortIndicators();
 }
 
@@ -245,8 +256,9 @@ function updateTrombiCategoryButtons() {
     categoryButtons.forEach(btn => {
         const category = btn.dataset.category;
         
-        // Désactiver "Vivants" et "Morts" si le joueur est vivant
-        if ((category === 'alive' || category === 'dead') && isAlive) {
+        // Désactiver "Vivants" et "Morts" seulement si le joueur est vivant ET n'est pas admin
+        // Les morts et les admins peuvent voir ces catégories
+        if ((category === 'alive' || category === 'dead') && isAlive && !currentPlayerIsAdmin) {
             btn.disabled = true;
             btn.classList.add('disabled');
         } else {
@@ -515,7 +527,7 @@ function renderTrombiDetails(player) {
     if (viewerCanSeeStatus && player.status && player.status.toLowerCase() === 'dead') {
         const info = document.createElement('p');
         info.classList.add('trombi-status-info');
-        info.textContent = 'Ce 0A est un gros fyot.';
+        info.textContent = 'Ce joueur est un gros fyot.';
         trombiDetails.appendChild(info);
     }
 }
@@ -648,7 +660,24 @@ function renderAdminOverview(players) {
         adminOverviewEmpty.classList.add('hidden');
     }
 
-    players.forEach(player => {
+    // Filtrer les joueurs selon la catégorie sélectionnée
+    const filteredPlayers = players.filter(player => {
+        if (currentAdminCategory === 'all') {
+            return true;
+        }
+        const rawStatus = typeof player.status === 'string' ? player.status.trim().toLowerCase() : '';
+        return rawStatus === currentAdminCategory;
+    });
+
+    // Si aucun joueur après filtrage, afficher le message vide
+    if (filteredPlayers.length === 0) {
+        if (adminOverviewEmpty) {
+            adminOverviewEmpty.classList.remove('hidden');
+        }
+        return;
+    }
+
+    filteredPlayers.forEach(player => {
         const row = document.createElement('tr');
 
         const rawStatus = typeof player.status === 'string' ? player.status.trim().toLowerCase() : '';
@@ -715,7 +744,7 @@ function getStatusLabel(status) {
         case 'dead':
             return 'Mort';
         case 'gaveup':
-            return 'A abandonné';
+            return 'Abandon';
         case 'alive':
         default:
             return 'Vivant';
@@ -727,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Vérifier si l'utilisateur est connecté
     checkLoggedIn();
     
-    [playerPersonPhoto, targetPersonPhoto, targetFeetPhoto, newTargetPersonPhoto, modalImage].forEach(img => {
+    [playerPersonPhoto, targetPersonPhoto, newTargetPersonPhoto, modalImage].forEach(img => {
         if (img) {
             img.referrerPolicy = 'no-referrer';
         }
@@ -788,12 +817,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    if (targetFeetPhoto) {
-        targetFeetPhoto.addEventListener('click', () => {
-            if (targetFeetPhoto.src) openPhotoModal(targetFeetPhoto.src);
-        });
-    }
-    
     // Fermer la modale
     if (closeModal) {
         closeModal.addEventListener('click', closePhotoModal);
@@ -813,6 +836,26 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAdminOverview();
         });
     }
+
+    // Configurer les boutons de catégorie admin
+    const adminCategoryButtons = document.querySelectorAll('.admin-category-btn');
+    adminCategoryButtons.forEach(btn => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            
+            const category = btn.dataset.adminCategory;
+            if (category && category !== currentAdminCategory) {
+                currentAdminCategory = category;
+                
+                // Mettre à jour l'état actif des boutons
+                adminCategoryButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Re-rendre la vue admin avec le filtre
+                applyAdminSortAndRender();
+            }
+        });
+    });
 
     adminSortHeaders = Array.isArray(adminSortHeaders) ? adminSortHeaders : [];
     adminSortHeaders = Array.from(document.querySelectorAll('.admin-table th.sortable'));
@@ -1113,23 +1156,54 @@ function updateTargetInfo(target) {
         if (targetPersonPhotoContainer) targetPersonPhotoContainer.classList.add('hidden');
     }
     
-    if (targetFeetPhoto && target.feet_photo) {
-        try {
-            // Vérifier si l'ID est valide (au moins 10 caractères)
-            if (target.feet_photo && target.feet_photo.length > 10) {
-                // Utiliser le format d'intégration d'image Google Drive
-                targetFeetPhoto.src = getDriveImageUrl(target.feet_photo, 500);
-                if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.remove('hidden');
-            } else {
-                console.warn("ID de photo de pieds invalide:", target.feet_photo);
-                if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
-            }
-        } catch (error) {
-            console.error("Erreur lors du chargement de la photo des pieds de la cible:", error);
-            if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
-        }
+    // Photo des pieds de la cible - affichée via bouton qui ouvre la modale
+    if (target.feet_photo && target.feet_photo.length > 10) {
+        const feetPhotoUrl = getDriveImageUrl(target.feet_photo, 600);
+        updateTargetFeetButton(true, feetPhotoUrl);
     } else {
-        if (targetFeetPhotoContainer) targetFeetPhotoContainer.classList.add('hidden');
+        updateTargetFeetButton(false, null);
+    }
+}
+
+/**
+ * Met à jour l'état du bouton "voir ses pieds" pour la cible
+ */
+/**
+ * Met à jour l'état du bouton "voir ses pieds" pour la cible
+ */
+function updateTargetFeetButton(hasPhoto, feetPhotoUrl) {
+    const targetCard = document.getElementById('target-card');
+    if (!targetCard) return;
+    
+    let feetButton = document.getElementById('target-feet-toggle-btn');
+    
+    if (hasPhoto && feetPhotoUrl) {
+        // Créer le bouton s'il n'existe pas
+        if (!feetButton) {
+            feetButton = document.createElement('button');
+            feetButton.id = 'target-feet-toggle-btn';
+            feetButton.className = 'feet-toggle-btn';
+            feetButton.type = 'button';
+            feetButton.textContent = 'voir ses pieds';
+            
+            // Insérer le bouton après la section des photos
+            const targetPhotos = targetCard.querySelector('.target-photos');
+            if (targetPhotos) {
+                targetPhotos.parentNode.insertBefore(feetButton, targetPhotos.nextSibling);
+            }
+        }
+        
+        // Mettre à jour l'événement de clic pour ouvrir la modale
+        feetButton.onclick = () => {
+            openPhotoModal(feetPhotoUrl);
+        };
+        
+        feetButton.classList.remove('hidden');
+    } else {
+        // Cacher le bouton s'il existe
+        if (feetButton) {
+            feetButton.classList.add('hidden');
+        }
     }
 }
 
@@ -1154,7 +1228,8 @@ function handleKilled(e) {
     e.preventDefault();
     
     // Confirmation avant de procéder
-    if (!confirm("Êtes-vous sûr de vouloir déclarer que vous avez été tué ? Cette action ne peut pas être annulée.")) {
+
+    if (!confirm("t'es sûr de vouloir mourir ? après tu pourras plus jouer c'est triste en vrai (gros fyot)")) {
         return;
     }
     
@@ -1170,7 +1245,7 @@ function handleKilled(e) {
             alert("Vous avez été marqué comme éliminé. Merci d'avoir participé au jeu!");
             // Mettre à jour l'interface pour montrer que le joueur est mort
             targetCard.classList.add('hidden');
-            noTargetMessage.textContent = "Vous avez été éliminé. Le jeu continue sans vous!";
+            noTargetMessage.textContent = "Tu t'es pas géré gros fyot. La str continue sans toi !";
             noTargetMessage.classList.remove('hidden');
             
             // Désactiver les boutons d'action
