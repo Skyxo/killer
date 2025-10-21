@@ -43,6 +43,7 @@ const adminRefreshBtn = document.getElementById('admin-refresh');
 const deadPlayerInfo = document.getElementById('dead-player-info');
 const aliveCountMessage = document.getElementById('alive-count-message');
 const podiumSection = document.getElementById('podium-section');
+const gameOverMessage = document.getElementById('game-over-message');
 
 let trombiIntervalId = null;
 let currentPlayerNickname = null;
@@ -261,14 +262,13 @@ function loadTrombi() {
 
 function updateTrombiCategoryButtons() {
     const categoryButtons = document.querySelectorAll('.trombi-category-btn');
-    const isAlive = viewerStatus === 'alive';
     
     categoryButtons.forEach(btn => {
         const category = btn.dataset.category;
         
-        // Désactiver "Vivants" et "Morts" seulement si le joueur est vivant ET n'est pas admin
-        // Les morts et les admins peuvent voir ces catégories
-        if ((category === 'alive' || category === 'dead') && isAlive && !currentPlayerIsAdmin) {
+        // Désactiver "Vivants" et "Morts" pour tous les joueurs non-admin
+        // Seuls les admins peuvent voir ces catégories
+        if ((category === 'alive' || category === 'dead') && !currentPlayerIsAdmin) {
             btn.disabled = true;
             btn.classList.add('disabled');
         } else {
@@ -286,7 +286,7 @@ function updateDeadPlayerInfo() {
     if (isDead && trombiPlayers) {
         // Compter les joueurs vivants
         const aliveCount = trombiPlayers.filter(p => p.status === 'alive').length;
-        aliveCountMessage.textContent = `Il reste ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} vivant${aliveCount > 1 ? 's' : ''}`;
+        aliveCountMessage.textContent = `Il reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} vivant${aliveCount > 1 ? 's' : ''}`;
         deadPlayerInfo.classList.remove('hidden');
     } else {
         deadPlayerInfo.classList.add('hidden');
@@ -799,6 +799,10 @@ function loadPodium() {
             if (data.game_over && data.podium && data.podium.length > 0) {
                 renderPodium(data.podium);
                 podiumSection.classList.remove('hidden');
+                // Afficher le message de fin de jeu
+                if (gameOverMessage) {
+                    gameOverMessage.classList.remove('hidden');
+                }
                 // Cacher la section cible, le message mort et les boutons d'action si le jeu est terminé
                 if (targetInfoSection) {
                     targetInfoSection.classList.add('hidden');
@@ -811,6 +815,10 @@ function loadPodium() {
                 }
             } else {
                 podiumSection.classList.add('hidden');
+                // Cacher le message de fin de jeu
+                if (gameOverMessage) {
+                    gameOverMessage.classList.add('hidden');
+                }
                 // Afficher la section cible si le jeu continue (sauf si le joueur est mort)
                 if (targetInfoSection && viewerStatus === 'alive') {
                     targetInfoSection.classList.remove('hidden');

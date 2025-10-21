@@ -55,10 +55,18 @@
             <div class="action-buttons">
                 <button id="killed-btn" class="btn btn-warning">Je suis mort (gros fyot)</button>
                 <button id="give-up-btn" class="btn btn-secondary">J'abandonne (défoukamerde)</button>
+            </div>
+
+            <div class="logout-button-container">
                 <button id="logout-btn" class="btn btn-secondary">Dékrônnection</button>
             </div>
 
             <div class="main-content">
+                <!-- Message de fin de jeu -->
+                <div class="game-over-message hidden" id="game-over-message">
+                    <p>🎉 Le killer est terminé bouuuh... mais la strrr continuee <span class="small-text">(manque toujours 1 pour CD)</span> 🎉</p>
+                </div>
+
                 <!-- Podium des vainqueurs -->
                 <div class="podium-section hidden" id="podium-section">
                     <h2>🏆 Podium des Vainqueurs 🏆</h2>
@@ -103,7 +111,7 @@
                 <div class="dead-player-info hidden" id="dead-player-info">
                     <div class="dead-player-info-content">
                         <p class="dead-player-message">💀 Tu es éliminé... mais reste branché !</p>
-                        <p class="alive-count" id="alive-count-message">Il reste <strong>X joueurs vivants</strong></p>
+                        <p class="alive-count" id="alive-count-message">Il reste plus que <strong>X joueurs vivants</strong></p>
                         <p class="dead-player-hint">Le podium s'affichera dès qu'un vainqueur sera désigné 🏆</p>
                     </div>
                 </div>

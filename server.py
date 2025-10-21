@@ -157,8 +157,9 @@ SHEET_COLUMNS = {
     "INITIAL_ACTION": 12, # Action initiale
     "CURRENT_ACTION": 13, # Action actuelle
     "STATUS": 14,     # État (alive/dead/gaveup)
-    "ADMIN_FLAG": 15, # Indique si le joueur est administrateur (True/False)
-    "PHONE": 16,      # Téléphone
+    "ELIMINATION_ORDER": 15, # Ordre d'élimination (numéro)
+    "ADMIN_FLAG": 16, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 17,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -730,12 +731,23 @@ def killed():
         if player["status"].lower() == "dead":
             return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 400
         
-        # 1. Marquer le joueur comme mort
+        # Compter combien de joueurs sont déjà morts pour déterminer l'ordre d'élimination
+        all_players = get_all_players()
+        dead_count = sum(1 for p in all_players if p.get("status", "").lower() == "dead")
+        elimination_order = dead_count + 1
+        
+        print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actuels: {dead_count})")
+        
+        # 1. Marquer le joueur comme mort et enregistrer l'ordre d'élimination
         sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
+        sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
+        
+        # Invalider le cache pour forcer le rechargement
+        global _cached_sheet
+        _cached_sheet = None
         
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
         # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
-        all_players = get_all_players()
         assassin = None
         
         for p in all_players:
@@ -865,13 +877,36 @@ def get_podium():
         return jsonify({"success": True, "game_over": False, "podium": []})
     
     # Le jeu est terminé, créer le podium
-    # On prend les 3 derniers joueurs vivants ou morts (ordre inversé d'élimination)
-    # Pour simplifier, on prend les joueurs vivants en premier, puis les derniers morts
-    dead_players = [p for p in players if (p.get("status") or "alive").lower() == "dead"]
-    gaveup_players = [p for p in players if (p.get("status") or "alive").lower() == "gaveup"]
+    # Podium = les 3 derniers joueurs éliminés (ordre inversé)
+    # On prend d'abord les joueurs vivants (gagnants), puis les morts par ordre décroissant d'élimination
     
-    # Créer le podium : vivants d'abord (gagnants), puis morts récents
-    podium_players = alive_players + dead_players
+    dead_players = [p for p in players if (p.get("status") or "alive").lower() == "dead"]
+    
+    # Séparer les joueurs morts avec et sans ordre d'élimination
+    dead_with_order = []
+    dead_without_order = []
+    
+    for p in dead_players:
+        order_str = p.get("elimination_order", "")
+        try:
+            order_num = int(order_str) if order_str else 0
+        except (ValueError, TypeError):
+            order_num = 0
+        
+        if order_num > 0:
+            dead_with_order.append(p)
+        else:
+            dead_without_order.append(p)
+    
+    # Trier les joueurs morts avec ordre par ordre décroissant (les derniers morts en premier)
+    dead_with_order_sorted = sorted(
+        dead_with_order,
+        key=lambda p: int(p.get("elimination_order", 0) or 0),
+        reverse=True
+    )
+    
+    # Créer le podium : vivants d'abord, puis morts avec ordre, puis morts sans ordre
+    podium_players = alive_players + dead_with_order_sorted + dead_without_order
     
     # Prendre les 3 premiers pour le podium
     podium = []
@@ -882,7 +917,8 @@ def get_podium():
             "person_photo": player.get("person_photo", ""),
             "feet_photo": player.get("feet_photo", ""),
             "year": player.get("year", ""),
-            "status": player.get("status", "alive")
+            "status": player.get("status", "alive"),
+            "elimination_order": player.get("elimination_order", "")
         })
     
     return jsonify({"success": True, "game_over": True, "podium": podium})
@@ -914,6 +950,8 @@ def get_all_players():
 
         phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
 
+        elimination_order = (row[SHEET_COLUMNS["ELIMINATION_ORDER"]] or "").strip() if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else ""
+
         players.append({
             "row": i,
             "nickname": nickname,
@@ -932,6 +970,7 @@ def get_all_players():
             "status": status,
             "is_admin": _parse_admin_flag(admin_flag_value),
             "phone": phone,
+            "elimination_order": elimination_order,
         })
 
     return players
