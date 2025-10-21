@@ -44,11 +44,13 @@
         <div id="player-container" class="hidden">
             <div class="header-profile">
                 <h2 id="player-nickname-header"></h2>
+                <p id="player-remaining-targets" class="player-remaining-targets hidden"></p>
                 <div class="profile-photos">
                     <div id="player-person-photo-container" class="photo-container photo-small">
                         <img id="player-person-photo" src="" alt="Photo du joueur" class="player-photo">
                         <img src="./client/img/mug_shot.png" alt="" class="player-mugshot-overlay" aria-hidden="true">
                     </div>
+                    <p id="player-kill-count" class="player-kill-count hidden"></p>
                 </div>
             </div>
 
@@ -64,7 +66,7 @@
             <div class="main-content">
                 <!-- Message de fin de jeu -->
                 <div class="game-over-message hidden" id="game-over-message">
-                    <p>🎉 Le killer est terminé bouuuh... mais la strrr continuee <span class="small-text">(manque toujours 1 pour CD)</span> 🎉</p>
+                    <p>🎉 Le killer est terminé bouuuh... mais la strrr continuee <span class="small-text">(manque 1 pour CD)</span> 🎉</p>
                 </div>
 
                 <!-- Podium des survivants -->
@@ -118,7 +120,7 @@
 
                 <!-- Section de la cible -->
                 <div class="target-info" id="target-info-section">
-                    <h2>TA CIBLE</h2>
+                    <h2 id="target-section-title">TA CIBLE</h2>
                     <div id="target-card" class="target-card">
                         <div class="mission-statement">
                             <p>Tu dois kill <span id="target-nickname" class="target-name"></span> : <span id="target-action" class="action"></span></p>
@@ -140,7 +142,7 @@
                     <div class="leaderboard-container">
                         <div id="leaderboard-list" class="leaderboard-list"></div>
                         <div id="leaderboard-empty" class="leaderboard-empty hidden">
-                            <p>Soit le premier à tuer un fyot ! (dans le jeu hein pas en vrai...)</p>
+                            <p>Soit le premier à tuer un(e) fyot(te) ! (dans le jeu hein pas en vrai...)</p>
                         </div>
                     </div>
                 </div>
@@ -150,11 +152,10 @@
                     <h2>Trombinoscope</h2>
                     <div class="trombi-categories">
                         <button type="button" class="trombi-category-btn active" data-category="all">Tous</button>
-                        <button type="button" class="trombi-category-btn" data-category="admin" title="(À contacter en cas de non gérance)">Admins</button>
                         <button type="button" class="trombi-category-btn" data-category="alive">Vivants</button>
                         <button type="button" class="trombi-category-btn" data-category="dead">Morts</button>
+                        <button type="button" class="trombi-category-btn hidden" data-category="gaveup">Abandons</button>
                     </div>
-                    <p class="trombi-category-hint" id="admin-category-hint">(À contacter en cas de non gérance)</p>
                     <div class="trombi-wrapper">
                         <div id="trombi-list" class="trombi-list"></div>
                         <div id="trombi-details" class="trombi-details">

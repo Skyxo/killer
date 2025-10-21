@@ -145,22 +145,23 @@ SHEET_COLUMNS = {
     "TIMESTAMP": 0,   # Horodateur
     "NICKNAME": 1,    # Surnom (le VRAI, pour pouvoir vous identifier)
     "YEAR": 2,        # Année (0A, 2A, 3A, etc.)
-    "PASSWORD": 3,    # Votre mot de passe
-    "PERSON_PHOTO": 4,# Une photo de vous neuillesque
-    "FEET_PHOTO": 5,  # une photo de vos pieds
-    "KRO_ANSWER": 6,  # Combien y a t il de cars dans une kro ?
-    "BEFORE_ANSWER": 7, # Est-ce que c'était mieux avant ?
-    "MESSAGE_ANSWER": 8, # Un petit mot pour vos brasseurs adorés
-    "CHALLENGE_IDEAS": 9, # Idées de défis
-    "INITIAL_TARGET": 10,  # Cible initiale
-    "CURRENT_TARGET": 11, # Cible actuelle
-    "INITIAL_ACTION": 12, # Action initiale
-    "CURRENT_ACTION": 13, # Action actuelle
-    "STATUS": 14,     # État (alive/dead/gaveup)
-    "ELIMINATION_ORDER": 15, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
-    "KILL_COUNT": 16, # Nombre de kills
-    "ADMIN_FLAG": 17, # Indique si le joueur est administrateur (True/False)
-    "PHONE": 18,      # Téléphone
+    "GENDER": 3,      # Sexe (H/F)
+    "PASSWORD": 4,    # Votre mot de passe
+    "PERSON_PHOTO": 5,# Une photo de vous neuillesque
+    "FEET_PHOTO": 6,  # une photo de vos pieds
+    "KRO_ANSWER": 7,  # Combien y a t il de cars dans une kro ?
+    "BEFORE_ANSWER": 8, # Est-ce que c'était mieux avant ?
+    "MESSAGE_ANSWER": 9, # Un petit mot pour vos brasseurs adorés
+    "CHALLENGE_IDEAS": 10, # Idées de défis
+    "INITIAL_TARGET": 11,  # Cible initiale
+    "CURRENT_TARGET": 12, # Cible actuelle
+    "INITIAL_ACTION": 13, # Action initiale
+    "CURRENT_ACTION": 14, # Action actuelle
+    "STATUS": 15,     # État (alive/dead/gaveup)
+    "ELIMINATION_ORDER": 16, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
+    "KILL_COUNT": 17, # Nombre de kills
+    "ADMIN_FLAG": 18, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 19,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -395,10 +396,13 @@ def get_player_by_nickname(nickname):
             password = row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else ""
             status_value = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
             admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
+            elimination_order_value = row[SHEET_COLUMNS["ELIMINATION_ORDER"]] if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else "0"
+            kill_count_value = row[SHEET_COLUMNS["KILL_COUNT"]] if len(row) > SHEET_COLUMNS["KILL_COUNT"] else "0"
 
             player = {
                 "row": i,
                 "nickname": sheet_nickname,
+                "gender": (row[SHEET_COLUMNS["GENDER"]] or "").strip() if len(row) > SHEET_COLUMNS["GENDER"] else "",
                 "password": password.strip() if isinstance(password, str) else password,
                 "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
                 "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
@@ -411,6 +415,8 @@ def get_player_by_nickname(nickname):
                 "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
                 "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
                 "status": _normalize_status(status_value),
+                "elimination_order": elimination_order_value.strip() if isinstance(elimination_order_value, str) else elimination_order_value,
+                "kill_count": kill_count_value.strip() if isinstance(kill_count_value, str) else kill_count_value,
                 "is_admin": _parse_admin_flag(admin_flag_value),
             }
             return player
@@ -467,10 +473,12 @@ def find_next_alive_target(nickname, visited=None):
     if not target:
         return None
     
-    if target["status"].lower() == "alive":
+    # Vérifier que la cible est active (elimination_order >= 0) et vivante
+    target_elimination_order = _parse_int(target.get("elimination_order", "0"), 0)
+    if target_elimination_order >= 0 and target["status"].lower() == "alive":
         return target
     
-    # Si la cible est morte, chercher la cible de cette cible
+    # Si la cible est morte ou inactive, chercher la cible de cette cible
     return find_next_alive_target(target["target"], visited)
 
 # Routes pour servir les fichiers statiques
@@ -531,12 +539,18 @@ def login():
     if player["password"].lower() != password.lower():
         return jsonify({"success": False, "message": "Mot de passe incorrect"}), 401
     
+    # Vérifier si le joueur est actif (elimination_order >= 0) OU si c'est un admin
+    elimination_order = _parse_int(player.get("elimination_order", "0"), 0)
+    is_admin = bool(player.get("is_admin"))
+    if elimination_order < 0 and not is_admin:
+        return jsonify({"success": False, "message": "Vous ne participez pas au jeu"}), 403
+    
     # Stocker l'ID du joueur dans la session
     session["nickname"] = nickname
     
-    # Récupérer les informations de la cible
+    # Récupérer les informations de la cible (seulement si le joueur participe activement)
     target_info = None
-    if player["target"]:
+    if elimination_order >= 0 and player["target"]:
         target = get_player_by_nickname(player["target"])
         
         # Si la cible est morte, trouver la prochaine cible vivante
@@ -570,6 +584,7 @@ def login():
         "success": True,
         "player": {
             "nickname": player["nickname"],
+            "gender": player.get("gender", ""),
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
             "status": player["status"],
@@ -595,9 +610,16 @@ def get_me():
         session.clear()
         return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
     
-    # Récupérer les informations de la cible
+    # Vérifier si le joueur est actif (elimination_order >= 0) OU si c'est un admin
+    elimination_order = _parse_int(player.get("elimination_order", "0"), 0)
+    is_admin = bool(player.get("is_admin"))
+    if elimination_order < 0 and not is_admin:
+        session.clear()
+        return jsonify({"success": False, "message": "Vous ne participez pas au jeu"}), 403
+    
+    # Récupérer les informations de la cible (seulement si le joueur participe activement)
     target_info = None
-    if player["target"]:
+    if elimination_order >= 0 and player["target"]:
         target = get_player_by_nickname(player["target"])
         
         # Si la cible est morte, trouver la prochaine cible vivante
@@ -631,6 +653,7 @@ def get_me():
         "success": True,
         "player": {
             "nickname": player["nickname"],
+            "gender": player.get("gender", ""),
             "person_photo": player["person_photo"],
             "feet_photo": player["feet_photo"],
             "status": player["status"],
@@ -857,8 +880,12 @@ def admin_overview():
         return jsonify({"success": False, "message": "Accès refusé"}), 403
 
     players = get_all_players()
+    
+    # Filtrer seulement les joueurs actifs (elimination_order >= 0, excluant ceux avec -1 qui ne jouent pas)
+    active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+    
     overview = []
-    for player in players:
+    for player in active_players:
         overview.append(
             {
                 "nickname": player.get("nickname", ""),
@@ -1053,6 +1080,7 @@ def get_all_players():
         players.append({
             "row": i,
             "nickname": nickname,
+            "gender": (row[SHEET_COLUMNS["GENDER"]] or "").strip() if len(row) > SHEET_COLUMNS["GENDER"] else "",
             "year": year,
             "password": (row[SHEET_COLUMNS["PASSWORD"]] or "").strip() if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
             "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
@@ -1091,17 +1119,24 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
     person_photo_id = player.get("person_photo", "") or ""
     year = player.get("year", "") or ""
     phone = player.get("phone", "") or ""
+    is_admin = bool(player.get("is_admin"))
     return {
         "nickname": nickname,
+        "gender": player.get("gender", "") or "",
         "year": year,
         "person_photo": person_photo_id,
         "feet_photo": player.get("feet_photo", "") or "",
         "status": normalized_status if include_status else None,
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
-        "is_admin": bool(player.get("is_admin")),
+        "is_admin": is_admin,
         "phone": phone,
         "kro_answer": player.get("kro_answer", "") or "",
         "before_answer": player.get("before_answer", "") or "",
+        "target": player.get("target", "") or "" if include_status else "",
+        "action": player.get("action", "") or "" if include_status else "",
+        "kill_count": player.get("kill_count", 0) if include_status else 0,
+        "elimination_order": player.get("elimination_order", "") or "" if include_status else "",
+        "password": player.get("password", "") or "" if include_status else "",
     }
 
 
@@ -1174,7 +1209,10 @@ def get_trombi():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
 
-    entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in players]
+    # Filtrer les joueurs actifs (elimination_order >= 0) ou les admins (qui sont toujours affichés)
+    visible_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0 or p.get("is_admin")]
+
+    entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in visible_players]
     entries.sort(key=lambda entry: (
         0 if entry.get("is_admin") else 1,
         (entry.get("nickname") or "").lower(),
