@@ -1162,6 +1162,9 @@ def get_leaderboard():
                     "kill_count": player.get("kill_count", 0),
                     "year": player.get("year", ""),
                     "person_photo": player.get("person_photo", ""),
+                    "status": _normalize_status(player.get("status")),
+                    "is_admin": bool(player.get("is_admin")),
+                    "elimination_order": player.get("elimination_order", 0),
                 }
             )
 

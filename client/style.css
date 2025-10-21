@@ -336,7 +336,7 @@ input:focus {
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
+    margin-bottom: 50px;
 }
 
 .trombi-categories {
@@ -380,6 +380,12 @@ input:focus {
     display: none;
 }
 
+/* Cacher les catégories admin/non-admin par défaut */
+.trombi-category-btn.admin-only,
+.trombi-category-btn.non-admin-only {
+    display: none;
+}
+
 .trombi-category-hint {
     display: none;
     font-size: 0.85rem;
@@ -391,6 +397,15 @@ input:focus {
 
 .trombi-category-hint.visible {
     display: block;
+}
+
+.trombi-admin-info {
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+    font-style: italic;
+    margin-top: 8px;
+    text-align: center;
+    opacity: 0.9;
 }
 
 .trombi-phone {
@@ -442,8 +457,22 @@ input:focus {
 .leaderboard-section h2 {
     color: var(--primary-color);
     text-align: center;
-    margin-bottom: 25px;
+    margin-bottom: 10px;
     font-size: 1.8rem;
+}
+
+.leaderboard-remaining {
+    text-align: center;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+    padding: 8px 15px;
+    background: linear-gradient(135deg, rgba(106, 27, 154, 0.1), rgba(156, 39, 176, 0.05));
+    border-radius: 8px;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .leaderboard-list {
@@ -469,6 +498,17 @@ input:focus {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(106, 27, 154, 0.15);
     border-color: var(--primary-color);
+}
+
+.leaderboard-entry-current {
+    background: linear-gradient(135deg, rgba(106, 27, 154, 0.15), rgba(156, 39, 176, 0.1));
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 2px 8px rgba(106, 27, 154, 0.2);
+}
+
+.leaderboard-entry-current:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(106, 27, 154, 0.3);
 }
 
 .leaderboard-rank {
@@ -1010,6 +1050,7 @@ input:focus {
 
 .logout-button-container {
     margin-top: 15px;
+    margin-bottom: 30px;
 }
 
 .logout-button-container button {

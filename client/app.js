@@ -38,11 +38,6 @@ const trombiList = document.getElementById('trombi-list');
 const trombiDetails = document.getElementById('trombi-details');
 const trombiEmpty = document.getElementById('trombi-empty');
 const trombiError = document.getElementById('trombi-error');
-const adminOverviewSection = document.getElementById('admin-overview');
-const adminOverviewBody = document.getElementById('admin-overview-body');
-const adminOverviewEmpty = document.getElementById('admin-overview-empty');
-const adminOverviewError = document.getElementById('admin-overview-error');
-const adminRefreshBtn = document.getElementById('admin-refresh');
 const deadPlayerInfo = document.getElementById('dead-player-info');
 const aliveCountMessage = document.getElementById('alive-count-message');
 const podiumSection = document.getElementById('podium-section');
@@ -50,11 +45,18 @@ const gameOverMessage = document.getElementById('game-over-message');
 const leaderboardSection = document.getElementById('leaderboard-section');
 const leaderboardList = document.getElementById('leaderboard-list');
 const leaderboardEmpty = document.getElementById('leaderboard-empty');
+const leaderboardRemaining = document.getElementById('leaderboard-remaining');
 
 // Fonction helper pour accorder les messages selon le genre
 function accord(gender, masculine, feminine) {
     const isFemale = gender && (gender.toUpperCase() === 'F' || gender.toLowerCase() === 'femme');
     return isFemale ? feminine : masculine;
+}
+
+// Fonction helper pour obtenir le format ordinal (1er, 2ème, 3ème, etc.)
+function getOrdinal(number) {
+    if (number === 1) return '1er';
+    return `${number}ème`;
 }
 
 let trombiIntervalId = null;
@@ -64,13 +66,8 @@ let trombiPlayers = [];
 let currentTrombiSelection = null;
 let viewerCanSeeStatus = false;
 let viewerStatus = 'alive';
-let adminOverviewIntervalId = null;
 let currentPlayerIsAdmin = false;
-let adminOverviewData = [];
-let adminOverviewSort = { column: null, direction: 'asc' };
-let adminSortHeaders = [];
 let currentTrombiCategory = 'all';
-let currentAdminCategory = 'all';
 
 // Sons de pet disponibles
 const petSounds = [
@@ -78,9 +75,7 @@ const petSounds = [
     './client/sounds/pet2.mp3',
     './client/sounds/pet3.mp3',
     './client/sounds/pet4.mp3',
-    './client/sounds/pet5.mp3',
-    './client/sounds/pet6.mp3',
-    './client/sounds/pet7.mp3'
+    './client/sounds/pet5.mp3'
 ];
 
 // Index pour alterner les sons de manière circulaire
@@ -177,48 +172,6 @@ function resetTrombiDisplay() {
     }
 }
 
-function startAdminOverviewUpdates() {
-    loadAdminOverview();
-    if (adminOverviewIntervalId) {
-        clearInterval(adminOverviewIntervalId);
-    }
-    adminOverviewIntervalId = setInterval(loadAdminOverview, 30000);
-}
-
-function stopAdminOverviewUpdates() {
-    if (adminOverviewIntervalId) {
-        clearInterval(adminOverviewIntervalId);
-        adminOverviewIntervalId = null;
-    }
-}
-
-function resetAdminOverviewDisplay() {
-    if (adminOverviewBody) {
-        adminOverviewBody.innerHTML = '';
-    }
-    if (adminOverviewEmpty) {
-        adminOverviewEmpty.classList.add('hidden');
-    }
-    if (adminOverviewError) {
-        adminOverviewError.classList.add('hidden');
-    }
-    adminOverviewData = [];
-    adminOverviewSort = { column: null, direction: 'asc' };
-    currentAdminCategory = 'all';
-    
-    // Réinitialiser les boutons de catégorie
-    const adminCategoryButtons = document.querySelectorAll('.admin-category-btn');
-    adminCategoryButtons.forEach(btn => {
-        if (btn.dataset.adminCategory === 'all') {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    
-    updateAdminSortIndicators();
-}
-
 function loadTrombi() {
     if (!trombiList) {
         return;
@@ -281,34 +234,13 @@ function loadTrombi() {
 }
 
 function updatePlayerStats() {
-    // Ne rien afficher pour les admins
-    if (currentPlayerIsAdmin) {
-        return;
+    // Ne plus afficher ces statistiques en haut du profil
+    // Elles seront affichées dans le leaderboard à la place
+    if (playerRemainingTargets) {
+        playerRemainingTargets.classList.add('hidden');
     }
-    
-    // Compter les joueurs vivants (exclure les admins)
-    const aliveCount = trombiPlayers.filter(p => {
-        const status = (p.status || 'alive').toLowerCase();
-        return status === 'alive' && !p.is_admin;
-    }).length;
-    
-    // Afficher "il reste X fyots à tuer"
-    if (playerRemainingTargets && aliveCount > 0) {
-        const remainingText = `Il reste ${aliveCount} ${accord(currentPlayerGender, 'fyots', 'fyotes')} à tuer`;
-        playerRemainingTargets.textContent = remainingText;
-        playerRemainingTargets.classList.remove('hidden');
-    }
-    
-    // Trouver le joueur courant dans la liste pour obtenir son nombre de kills
-    const currentPlayer = trombiPlayers.find(p => 
-        p.nickname && currentPlayerNickname && 
-        p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
-    );
-    
-    if (playerKillCount && currentPlayer) {
-        const killCount = currentPlayer.kill_count || 0;
-        playerKillCount.textContent = `🔪 ${killCount} kill${killCount > 1 ? 's' : ''}`;
-        playerKillCount.classList.remove('hidden');
+    if (playerKillCount) {
+        playerKillCount.classList.add('hidden');
     }
 }
 
@@ -318,44 +250,38 @@ function updateTrombiCategoryButtons() {
     categoryButtons.forEach(btn => {
         const category = btn.dataset.category;
         
-        // Désactiver "Vivants" et "Morts" pour tous les joueurs non-admin
-        // Seuls les admins peuvent voir ces catégories
-        if ((category === 'alive' || category === 'dead') && !currentPlayerIsAdmin) {
-            btn.disabled = true;
-            btn.classList.add('disabled');
-        } else {
-            btn.disabled = false;
-            btn.classList.remove('disabled');
-        }
-        
-        // Afficher le bouton "Abandons" uniquement pour les admins
-        if (category === 'gaveup') {
-            if (currentPlayerIsAdmin) {
+        if (currentPlayerIsAdmin) {
+            // Pour les admins : afficher les catégories admin, cacher les catégories non-admin
+            if (btn.classList.contains('admin-only')) {
+                btn.style.display = '';
                 btn.classList.remove('hidden');
-            } else {
+            } else if (btn.classList.contains('non-admin-only')) {
+                btn.style.display = 'none';
                 btn.classList.add('hidden');
             }
+        } else {
+            // Pour les non-admins : afficher les catégories non-admin, cacher les catégories admin
+            if (btn.classList.contains('non-admin-only')) {
+                btn.style.display = '';
+                btn.classList.remove('hidden');
+            } else if (btn.classList.contains('admin-only')) {
+                btn.style.display = 'none';
+                btn.classList.add('hidden');
+            }
+        }
+        
+        // Activer le bouton correspondant à la catégorie actuelle
+        if (category === currentTrombiCategory) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
         }
     });
 }
 
 function updateDeadPlayerInfo() {
-    if (!deadPlayerInfo || !aliveCountMessage) return;
-    
-    const isDead = viewerStatus === 'dead' || viewerStatus === 'gaveup';
-    
-    if (isDead && trombiPlayers) {
-        // Compter les joueurs vivants (exclure les admins)
-        const aliveCount = trombiPlayers.filter(p => p.status === 'alive' && !p.is_admin).length;
-        
-        // Cacher le message si le jeu est terminé (1 joueur ou moins)
-        if (aliveCount <= 1) {
-            deadPlayerInfo.classList.add('hidden');
-        } else {
-            aliveCountMessage.textContent = `Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie`;
-            deadPlayerInfo.classList.remove('hidden');
-        }
-    } else {
+    // Cette fonction n'est plus utilisée - le message est affiché dans le leaderboard
+    if (deadPlayerInfo) {
         deadPlayerInfo.classList.add('hidden');
     }
 }
@@ -371,9 +297,6 @@ function renderTrombi() {
         if (trombiEmpty) {
             trombiEmpty.classList.remove('hidden');
         }
-        if (trombiDetails) {
-            trombiDetails.innerHTML = '<p class="trombi-placeholder">Pas encore de joueurs à afficher.</p>';
-        }
         return;
     }
 
@@ -387,7 +310,8 @@ function renderTrombi() {
             return true;
         } else if (currentTrombiCategory === 'alive') {
             const status = (player.status || 'alive').toLowerCase();
-            return status === 'alive';
+            // Exclure les admins de la catégorie "vivants"
+            return status === 'alive' && !player.is_admin;
         } else if (currentTrombiCategory === 'dead') {
             const status = (player.status || 'alive').toLowerCase();
             // Pour la catégorie "Morts", ne plus inclure les abandons
@@ -396,6 +320,12 @@ function renderTrombi() {
             const status = (player.status || 'alive').toLowerCase();
             // Catégorie "Abandons" - uniquement pour les admins
             return status === 'gaveup';
+        } else if (currentTrombiCategory === 'players') {
+            // Catégorie "Joueurs" pour les non-admins : tous les joueurs (y compris les admins)
+            return true;
+        } else if (currentTrombiCategory === 'admins') {
+            // Catégorie "Admins" pour les non-admins : seulement les admins
+            return player.is_admin;
         }
         return true;
     });
@@ -403,9 +333,6 @@ function renderTrombi() {
     if (filteredPlayers.length === 0) {
         if (trombiEmpty) {
             trombiEmpty.classList.remove('hidden');
-        }
-        if (trombiDetails) {
-            trombiDetails.innerHTML = '<p class="trombi-placeholder">Aucun joueur dans cette catégorie.</p>';
         }
         return;
     }
@@ -435,11 +362,38 @@ function renderTrombi() {
             labelWrapper.appendChild(yearBadge);
         }
 
+        // Affichage du statut pour les admins (à côté de l'année)
+        // Les admins (joueurs avec is_admin=true) n'ont PAS de badge de statut car ils ne participent pas au jeu
+        if (currentPlayerIsAdmin && !player.is_admin) {
+            const statusChip = document.createElement('span');
+            
+            // Afficher le statut uniquement pour les non-admins
+            if (typeof player.status === 'string' && player.status) {
+                const normalizedStatus = player.status.toLowerCase();
+                statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
+                statusChip.textContent = getStatusLabel(normalizedStatus);
+            }
+            
+            if (statusChip.textContent) {
+                labelWrapper.appendChild(statusChip);
+            }
+        }
+
         if (player.is_admin) {
             labelWrapper.appendChild(createAdminBadge());
         }
 
         entryButton.appendChild(labelWrapper);
+
+        // Afficher le nombre de kills à droite pour les admins
+        if (currentPlayerIsAdmin && !player.is_admin) {
+            const killCount = player.kill_count || 0;
+            const killBadge = document.createElement('span');
+            killBadge.classList.add('trombi-kill-badge');
+            killBadge.textContent = `${killCount} 🗡️`;
+            killBadge.setAttribute('aria-label', `${killCount} kill${killCount > 1 ? 's' : ''}`);
+            entryButton.appendChild(killBadge);
+        }
 
         if (currentPlayerNickname && nickname && nickname.toLowerCase() === currentPlayerNickname.toLowerCase()) {
             entryButton.classList.add('trombi-entry-self');
@@ -447,26 +401,6 @@ function renderTrombi() {
 
         if (currentSelectionName && nickname.toLowerCase() === currentSelectionName) {
             entryButton.classList.add('selected');
-        }
-
-        // Affichage du statut
-        if (currentPlayerIsAdmin) {
-            const statusChip = document.createElement('span');
-            
-            // Si c'est un admin, afficher "admin" au lieu du statut
-            if (player.is_admin) {
-                statusChip.classList.add('status-pill', 'status-admin');
-                statusChip.textContent = 'admin';
-            } else if (typeof player.status === 'string' && player.status) {
-                // Pour les non-admins, afficher le statut normal
-                const normalizedStatus = player.status.toLowerCase();
-                statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
-                statusChip.textContent = getStatusLabel(normalizedStatus);
-            }
-            
-            if (statusChip.textContent) {
-                entryButton.appendChild(statusChip);
-            }
         }
 
         entryButton.addEventListener('click', () => {
@@ -546,53 +480,99 @@ function renderTrombiDetails(player) {
         title.appendChild(yearBadge);
     }
 
+    // Affichage du badge de statut pour les admins (sur la même ligne que le nom)
+    // Les admins (joueurs avec is_admin=true) n'ont PAS de badge de statut car ils ne participent pas au jeu
+    if (currentPlayerIsAdmin && !player.is_admin) {
+        const statusPill = document.createElement('span');
+        
+        // Afficher le statut uniquement pour les non-admins
+        if (typeof player.status === 'string' && player.status) {
+            const normalizedStatus = player.status.toLowerCase();
+            statusPill.classList.add('status-pill', `status-${normalizedStatus}`);
+            statusPill.textContent = getStatusLabel(normalizedStatus);
+            statusPill.setAttribute('aria-label', `Statut: ${getStatusLabel(normalizedStatus)}`);
+        }
+        
+        if (statusPill.textContent) {
+            title.appendChild(statusPill);
+        }
+    }
+
     if (player.is_admin) {
         title.appendChild(createAdminBadge());
     }
 
     trombiDetails.appendChild(title);
 
-    // Afficher le numéro de téléphone pour les admins
-    if (player.is_admin && player.phone) {
-        const phoneContainer = document.createElement('p');
-        phoneContainer.classList.add('trombi-phone');
+    // Afficher le message info après le statut selon le type de joueur
+    if (player.is_admin) {
+        // Message d'information pour les admins uniquement
+        const adminInfo = document.createElement('p');
+        adminInfo.classList.add('trombi-admin-info');
+        adminInfo.textContent = 'à contacter en cas de non gérance (au killer)';
+        trombiDetails.appendChild(adminInfo);
         
-        const phoneLink = document.createElement('a');
-        phoneLink.href = `tel:${player.phone}`;
-        phoneLink.textContent = `📞 ${player.phone}`;
-        phoneLink.title = 'Appeler ce numéro';
+        // Numéro de téléphone pour les admins
+        if (player.phone) {
+            const phoneContainer = document.createElement('p');
+            phoneContainer.classList.add('trombi-phone');
+            
+            const phoneLink = document.createElement('a');
+            phoneLink.href = `tel:${player.phone}`;
+            phoneLink.textContent = `📞 ${player.phone}`;
+            phoneLink.title = 'Appeler ce numéro';
+            
+            phoneContainer.appendChild(phoneLink);
+            trombiDetails.appendChild(phoneContainer);
+        }
+    } else {
+        // Message des quarts/sénile pour les non-admins uniquement
+        let message = '';
         
-        phoneContainer.appendChild(phoneLink);
-        trombiDetails.appendChild(phoneContainer);
+        // Message basé sur les quarts dans une krô (en premier)
+        const kroAnswer = (player.kro_answer || '').trim();
+        if (kroAnswer) {
+            // Extraire le nombre pour gérer le pluriel correctement
+            const numberMatch = kroAnswer.match(/\d+/);
+            const hasMultipleQuarts = numberMatch && parseInt(numberMatch[0]) > 1;
+            const quartWord = hasMultipleQuarts ? 'quarts' : 'quart';
+            
+            // Si la réponse contient "Réponse B", ajouter "(gros fyot)"
+            if (kroAnswer.toLowerCase().includes('réponse b') || kroAnswer.toLowerCase().includes('reponse b')) {
+                message = `${accord(player.gender, 'Ce (gros) fyot pense', 'Cette grosse fyotte pense')} qu'il y a ${kroAnswer} ${quartWord} dans une krô`;
+            } else {
+                message = `${accord(player.gender, 'Ce fyot pense', 'Cette fyotte pense')} qu'il y a ${kroAnswer} ${quartWord} dans une krô`;
+            }
+        }
+        
+        // Ajouter la réponse sur "Est-ce que c'était mieux avant ?"
+        const beforeAnswer = (player.before_answer || '').trim();
+        if (beforeAnswer.toLowerCase().includes('sénile') || beforeAnswer.toLowerCase().includes('senile')) {
+            if (message) {
+                message += ` et ${accord(player.gender, 'il', 'elle')} est sénile`;
+            } else {
+                message = `${accord(player.gender, 'Ce joueur', 'Cette joueuse')} est sénile`;
+            }
+        } else if (beforeAnswer.toLowerCase() === 'non' || beforeAnswer.toLowerCase() === 'no') {
+            if (message) {
+                message += ' et que c\'était pas mieux avant';
+            } else {
+                message = `${accord(player.gender, 'Ce fyot pense', 'Cette fyotte pense')} que c'était pas mieux avant`;
+            }
+        }
+        
+        if (message) {
+            const playerInfo = document.createElement('p');
+            playerInfo.classList.add('trombi-admin-info'); // Réutiliser le même style
+            playerInfo.textContent = message;
+            trombiDetails.appendChild(playerInfo);
+        }
     }
 
     const metaContainer = document.createElement('div');
     metaContainer.classList.add('trombi-meta');
     let metaHasContent = false;
 
-    // Affichage du statut pour les admins
-    if (currentPlayerIsAdmin) {
-        const statusBadge = document.createElement('span');
-        
-        // Si c'est un admin, afficher "admin" au lieu du statut
-        if (player.is_admin) {
-            statusBadge.classList.add('status-pill', 'status-admin');
-            statusBadge.textContent = 'admin';
-            statusBadge.setAttribute('aria-label', 'Statut: admin');
-        } else if (typeof player.status === 'string' && player.status) {
-            // Pour les non-admins, afficher le statut normal
-            const normalizedStatus = player.status.toLowerCase();
-            statusBadge.classList.add('status-pill', `status-${normalizedStatus}`);
-            statusBadge.textContent = getStatusLabel(normalizedStatus);
-            statusBadge.setAttribute('aria-label', `Statut: ${getStatusLabel(normalizedStatus)}`);
-        }
-        
-        if (statusBadge.textContent) {
-            metaContainer.appendChild(statusBadge);
-            metaHasContent = true;
-        }
-    }
-    
     // Afficher la cible et l'action pour les admins (dans le metaContainer)
     if (currentPlayerIsAdmin && player.target) {
         const targetInfoMeta = document.createElement('span');
@@ -613,78 +593,57 @@ function renderTrombiDetails(player) {
         const statsContainer = document.createElement('div');
         statsContainer.classList.add('trombi-admin-stats');
         
-        // Nombre de kills
-        const killCount = player.kill_count || 0;
-        const killsText = document.createElement('p');
-        killsText.classList.add('trombi-stat-item');
-        killsText.innerHTML = `<strong>Kills :</strong> ${killCount}`;
-        statsContainer.appendChild(killsText);
-        
-        // Calculer le classement du joueur (exclure les admins du classement)
-        if (killCount > 0 && trombiPlayers.length > 0) {
-            // Trier les joueurs par kill_count décroissant (sans les admins)
-            const sortedPlayers = [...trombiPlayers]
-                .filter(p => !p.is_admin)
-                .sort((a, b) => {
-                    const aKills = a.kill_count || 0;
-                    const bKills = b.kill_count || 0;
-                    return bKills - aKills;
-                });
+        // Ne pas afficher les statistiques de kill pour les admins (ils ne participent pas au jeu)
+        if (!player.is_admin) {
+            // Nombre de kills
+            const killCount = player.kill_count || 0;
+            const killsText = document.createElement('p');
+            killsText.classList.add('trombi-stat-item');
+            killsText.innerHTML = `<strong>Kills :</strong> ${killCount}`;
+            statsContainer.appendChild(killsText);
             
-            // Trouver le rang du joueur
-            let rank = 1;
-            for (let i = 0; i < sortedPlayers.length; i++) {
-                if (sortedPlayers[i].nickname === player.nickname) {
-                    rank = i + 1;
-                    break;
+            // Calculer le classement du joueur (exclure les admins du classement)
+            if (killCount > 0 && trombiPlayers.length > 0) {
+                // Trier les joueurs par kill_count décroissant (sans les admins)
+                const sortedPlayers = [...trombiPlayers]
+                    .filter(p => !p.is_admin)
+                    .sort((a, b) => {
+                        const aKills = a.kill_count || 0;
+                        const bKills = b.kill_count || 0;
+                        return bKills - aKills;
+                    });
+                
+                // Trouver le rang du joueur
+                let rank = 1;
+                for (let i = 0; i < sortedPlayers.length; i++) {
+                    if (sortedPlayers[i].nickname === player.nickname) {
+                        rank = i + 1;
+                        break;
+                    }
                 }
+                
+                const rankText = document.createElement('p');
+                rankText.classList.add('trombi-stat-item');
+                rankText.innerHTML = `<strong>Classement tueur :</strong> ${rank}/${sortedPlayers.length}`;
+                statsContainer.appendChild(rankText);
             }
             
-            const rankText = document.createElement('p');
-            rankText.classList.add('trombi-stat-item');
-            rankText.innerHTML = `<strong>Classement tueur :</strong> ${rank}/${sortedPlayers.length}`;
-            statsContainer.appendChild(rankText);
-        }
-        
-        // Ordre d'élimination et ratio n/N si le joueur est mort
-        if (player.status && (player.status.toLowerCase() === 'dead' || player.status.toLowerCase() === 'gaveup')) {
-            const eliminationOrder = player.elimination_order || 0;
-            
-            // Calculer le ratio n/N
-            // N = nombre total de joueurs actifs au début (elimination_order >= 0, exclure les admins)
-            const totalActivePlayers = trombiPlayers.filter(p => {
-                const order = p.elimination_order || 0;
-                return order >= 0 && !p.is_admin;
-            }).length;
-            
-            // n = nombre de joueurs vivants au moment de l'élimination
-            // Si elimination_order = 1, c'était le 1er mort, donc n = N - 1
-            // Si elimination_order = 2, c'était le 2ème mort, donc n = N - 2
-            // Formule : n = N - elimination_order
-            const aliveWhenKilled = totalActivePlayers - eliminationOrder;
-            
-            const orderText = document.createElement('p');
-            orderText.classList.add('trombi-stat-item');
-            orderText.innerHTML = `<strong>Éliminé :</strong> ${aliveWhenKilled}/${totalActivePlayers} (ordre: ${eliminationOrder})`;
-            statsContainer.appendChild(orderText);
-        }
-        
-        // Nombre de joueurs vivants restants (exclure les admins)
-        const aliveCount = trombiPlayers.filter(p => {
-            const status = (p.status || 'alive').toLowerCase();
-            return status === 'alive' && !p.is_admin;
-        }).length;
-        const aliveText = document.createElement('p');
-        aliveText.classList.add('trombi-stat-item');
-        aliveText.innerHTML = `<strong>Joueurs vivants :</strong> ${aliveCount}`;
-        statsContainer.appendChild(aliveText);
-        
-        // Mot de passe
-        if (player.password) {
-            const passwordText = document.createElement('p');
-            passwordText.classList.add('trombi-stat-item', 'trombi-password');
-            passwordText.innerHTML = `<strong>Mot de passe :</strong> <code>${player.password}</code>`;
-            statsContainer.appendChild(passwordText);
+            // Ordre d'élimination si le joueur est mort
+            if (player.status && (player.status.toLowerCase() === 'dead' || player.status.toLowerCase() === 'gaveup')) {
+                const eliminationOrder = player.elimination_order || 0;
+                
+                // N = nombre total de joueurs de la partie (ceux avec elimination_order !== -1)
+                const totalActivePlayers = trombiPlayers.filter(p => {
+                    const order = p.elimination_order;
+                    return order !== undefined && order !== null && order !== -1;
+                }).length;
+                
+                const orderText = document.createElement('p');
+                orderText.classList.add('trombi-stat-item');
+                // Format : "Mort en 1er (1/15)" ou "Mort en 5ème (5/15)"
+                orderText.innerHTML = `<strong>Mort en ${getOrdinal(eliminationOrder)}</strong> (${eliminationOrder}/${totalActivePlayers})`;
+                statsContainer.appendChild(orderText);
+            }
         }
         
         metaContainer.appendChild(statsContainer);
@@ -741,245 +700,6 @@ function renderTrombiDetails(player) {
     }
 
     trombiDetails.appendChild(photoContainer);
-
-    // Afficher le message personnalisé basé sur les réponses du joueur
-    if (player.before_answer || player.kro_answer) {
-        const info = document.createElement('p');
-        info.classList.add('trombi-status-info');
-        
-        let message = '';
-        
-        // Message basé sur les quarts dans une krô (en premier)
-        const kroAnswer = (player.kro_answer || '').trim();
-        if (kroAnswer) {
-            // Si la réponse contient "Réponse B", ajouter "(gros fyot)"
-            if (kroAnswer.toLowerCase().includes('réponse b') || kroAnswer.toLowerCase().includes('reponse b')) {
-                message = `${accord(player.gender, 'Ce (gros) fyot pense', 'Cette grosse fyotte pense')} qu'il y a ${kroAnswer} quarts dans une krô`;
-            } else {
-                message = `${accord(player.gender, 'Ce fyot pense', 'Cette fyotte pense')} qu'il y a ${kroAnswer} quarts dans une krô`;
-            }
-        }
-        
-        // Ajouter la réponse sur "Est-ce que c'était mieux avant ?"
-        const beforeAnswer = (player.before_answer || '').trim();
-        if (beforeAnswer.toLowerCase().includes('sénile') || beforeAnswer.toLowerCase().includes('senile')) {
-            if (message) {
-                message += ` et ${accord(player.gender, 'il', 'elle')} est sénile`;
-            } else {
-                message = `${accord(player.gender, 'Ce joueur', 'Cette joueuse')} est sénile`;
-            }
-        } else if (beforeAnswer.toLowerCase() === 'non' || beforeAnswer.toLowerCase() === 'no') {
-            if (message) {
-                message += ' et que c\'était pas mieux avant';
-            } else {
-                message = `${accord(player.gender, 'Ce fyot pense', 'Cette fyotte pense')} que c'était pas mieux avant`;
-            }
-        }
-        
-        if (message) {
-            info.textContent = message;
-            trombiDetails.appendChild(info);
-        }
-    }
-}
-
-function loadAdminOverview() {
-    if (!adminOverviewBody || !currentPlayerIsAdmin) {
-        return;
-    }
-
-    if (adminOverviewError) {
-        adminOverviewError.classList.add('hidden');
-    }
-
-    fetch('/api/admin/overview')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (!data || !data.success || !Array.isArray(data.players)) {
-                throw new Error('Format de réponse invalide');
-            }
-            adminOverviewData = data.players.slice();
-            applyAdminSortAndRender();
-        })
-        .catch(error => {
-            console.error('Erreur lors du chargement de la vue admin:', error);
-            if (adminOverviewError) {
-                adminOverviewError.classList.remove('hidden');
-            }
-        });
-}
-
-function applyAdminSortAndRender() {
-    if (!Array.isArray(adminOverviewData)) {
-        adminOverviewData = [];
-    }
-
-    const playersToRender = adminOverviewData.slice();
-    const { column, direction } = adminOverviewSort;
-
-    if (column) {
-        playersToRender.sort((a, b) => {
-            const valueA = getAdminSortValue(a, column);
-            const valueB = getAdminSortValue(b, column);
-            const comparison = valueA.localeCompare(valueB, 'fr', { sensitivity: 'base', ignorePunctuation: true });
-            if (comparison === 0) {
-                return 0;
-            }
-            return direction === 'desc' ? -comparison : comparison;
-        });
-    }
-
-    renderAdminOverview(playersToRender);
-}
-
-function getAdminSortValue(player, columnKey) {
-    if (!player || !columnKey) {
-        return '';
-    }
-    const rawValue = player[columnKey];
-    if (typeof rawValue === 'number') {
-        return rawValue.toString();
-    }
-    if (typeof rawValue === 'string') {
-        return rawValue.trim().toLowerCase();
-    }
-    return '';
-}
-
-function handleAdminSort(columnKey) {
-    if (!columnKey) {
-        return;
-    }
-
-    if (adminOverviewSort.column === columnKey) {
-        adminOverviewSort = {
-            column: columnKey,
-            direction: adminOverviewSort.direction === 'asc' ? 'desc' : 'asc'
-        };
-    } else {
-        adminOverviewSort = { column: columnKey, direction: 'asc' };
-    }
-
-    if (!Array.isArray(adminOverviewData) || adminOverviewData.length === 0) {
-        updateAdminSortIndicators();
-        return;
-    }
-
-    applyAdminSortAndRender();
-}
-
-function updateAdminSortIndicators() {
-    if (!Array.isArray(adminSortHeaders) || adminSortHeaders.length === 0) {
-        return;
-    }
-
-    adminSortHeaders.forEach(header => {
-        if (!header || !header.dataset) {
-            return;
-        }
-        const headerKey = header.dataset.sortKey;
-        if (adminOverviewSort.column === headerKey) {
-            header.dataset.sortDirection = adminOverviewSort.direction;
-        } else {
-            header.removeAttribute('data-sort-direction');
-        }
-    });
-}
-
-function renderAdminOverview(players) {
-    if (!adminOverviewBody) {
-        return;
-    }
-
-    updateAdminSortIndicators();
-
-    adminOverviewBody.innerHTML = '';
-
-    if (!players || players.length === 0) {
-        if (adminOverviewEmpty) {
-            adminOverviewEmpty.classList.remove('hidden');
-        }
-        return;
-    }
-
-    if (adminOverviewEmpty) {
-        adminOverviewEmpty.classList.add('hidden');
-    }
-
-    // Filtrer les joueurs selon la catégorie sélectionnée
-    const filteredPlayers = players.filter(player => {
-        if (currentAdminCategory === 'all') {
-            return true;
-        }
-        const rawStatus = typeof player.status === 'string' ? player.status.trim().toLowerCase() : '';
-        return rawStatus === currentAdminCategory;
-    });
-
-    // Si aucun joueur après filtrage, afficher le message vide
-    if (filteredPlayers.length === 0) {
-        if (adminOverviewEmpty) {
-            adminOverviewEmpty.classList.remove('hidden');
-        }
-        return;
-    }
-
-    filteredPlayers.forEach(player => {
-        const row = document.createElement('tr');
-
-        const rawStatus = typeof player.status === 'string' ? player.status.trim().toLowerCase() : '';
-        const knownStatuses = ['alive', 'dead', 'gaveup'];
-        const statusKey = knownStatuses.includes(rawStatus) ? rawStatus : 'unknown';
-
-        if (statusKey !== 'unknown') {
-            row.classList.add('admin-row-status', `admin-row-status-${statusKey}`);
-        }
-
-        const nicknameCell = document.createElement('td');
-        const baseName = (player.nickname || '???').trim() || '???';
-        nicknameCell.textContent = baseName;
-        if (player.is_admin) {
-            const adminHint = document.createElement('span');
-            adminHint.classList.add('admin-inline-label');
-            adminHint.textContent = ' (admin)';
-            nicknameCell.appendChild(adminHint);
-        }
-
-        const statusCell = document.createElement('td');
-        if (statusKey !== 'unknown') {
-            const statusBadge = document.createElement('span');
-            statusBadge.classList.add('status-pill', `status-${statusKey}`, 'admin-status-pill');
-            statusBadge.textContent = getStatusLabel(statusKey);
-            statusCell.appendChild(statusBadge);
-        } else {
-            statusCell.textContent = player.status || 'Inconnu';
-        }
-
-        const targetCell = document.createElement('td');
-        targetCell.textContent = player.target || '—';
-
-        const actionCell = document.createElement('td');
-        actionCell.textContent = player.action || '—';
-
-        const initialTargetCell = document.createElement('td');
-        initialTargetCell.textContent = player.initial_target || '—';
-
-        const initialActionCell = document.createElement('td');
-        initialActionCell.textContent = player.initial_action || '—';
-
-        row.appendChild(nicknameCell);
-        row.appendChild(statusCell);
-        row.appendChild(targetCell);
-        row.appendChild(actionCell);
-        row.appendChild(initialTargetCell);
-        row.appendChild(initialActionCell);
-
-        adminOverviewBody.appendChild(row);
-    });
 }
 
 function createAdminBadge() {
@@ -1123,10 +843,41 @@ async function loadLeaderboard() {
 
         const data = await response.json();
         
+        // Compter les joueurs vivants : ceux avec status === 'alive' ET qui ne sont pas admins
+        const aliveCount = (data.leaderboard || []).filter(player => {
+            return player.status === 'alive' && !player.is_admin;
+        }).length;
+        
+        // Afficher "Il reste X joueurs en vie" pour tout le monde
+        if (leaderboardRemaining) {
+            const remainingText = `Il reste ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie`;
+            leaderboardRemaining.textContent = remainingText;
+            leaderboardRemaining.classList.remove('hidden');
+        }
+        
         // Filtrer les joueurs avec au moins 1 kill (exclure les admins)
         const playersWithKills = (data.leaderboard || []).filter(player => (player.kill_count || 0) > 0 && !player.is_admin);
         
-        if (playersWithKills.length === 0) {
+        // Trouver le joueur actuel
+        const currentPlayer = (data.leaderboard || []).find(p => 
+            p.nickname && currentPlayerNickname && 
+            p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
+        );
+        
+        // Ajouter le joueur actuel s'il n'est pas dans le leaderboard et n'est pas admin
+        let playersToDisplay = [...playersWithKills];
+        if (currentPlayer && !currentPlayer.is_admin) {
+            const isInLeaderboard = playersWithKills.some(p => 
+                p.nickname && p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
+            );
+            
+            if (!isInLeaderboard) {
+                // Ajouter le joueur actuel à la fin
+                playersToDisplay.push(currentPlayer);
+            }
+        }
+        
+        if (playersToDisplay.length === 0) {
             // Afficher le message "Soit le premier à faire un kill !"
             if (leaderboardList) leaderboardList.classList.add('hidden');
             if (leaderboardEmpty) leaderboardEmpty.classList.remove('hidden');
@@ -1134,7 +885,7 @@ async function loadLeaderboard() {
             // Afficher le leaderboard
             if (leaderboardEmpty) leaderboardEmpty.classList.add('hidden');
             if (leaderboardList) leaderboardList.classList.remove('hidden');
-            renderLeaderboard(playersWithKills);
+            renderLeaderboard(playersToDisplay);
         }
     } catch (error) {
         console.error('Erreur lors du chargement du leaderboard:', error);
@@ -1165,6 +916,14 @@ function renderLeaderboard(players) {
         
         const entry = document.createElement('div');
         entry.className = 'leaderboard-entry';
+        
+        // Vérifier si c'est le joueur actuel
+        const isCurrentPlayer = player.nickname && currentPlayerNickname && 
+            player.nickname.toLowerCase() === currentPlayerNickname.toLowerCase();
+        
+        if (isCurrentPlayer) {
+            entry.classList.add('leaderboard-entry-current');
+        }
         
         // Classe spéciale pour les médailles
         let rankClass = '';
@@ -1272,45 +1031,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    if (adminRefreshBtn) {
-        adminRefreshBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            loadAdminOverview();
-        });
-    }
-
-    // Configurer les boutons de catégorie admin
-    const adminCategoryButtons = document.querySelectorAll('.admin-category-btn');
-    adminCategoryButtons.forEach(btn => {
-        btn.addEventListener('click', (event) => {
-            event.preventDefault();
-            
-            const category = btn.dataset.adminCategory;
-            if (category && category !== currentAdminCategory) {
-                currentAdminCategory = category;
-                
-                // Mettre à jour l'état actif des boutons
-                adminCategoryButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                // Re-rendre la vue admin avec le filtre
-                applyAdminSortAndRender();
-            }
-        });
-    });
-
-    adminSortHeaders = Array.isArray(adminSortHeaders) ? adminSortHeaders : [];
-    adminSortHeaders = Array.from(document.querySelectorAll('.admin-table th.sortable'));
-    adminSortHeaders.forEach(header => {
-        header.addEventListener('click', (event) => {
-            event.preventDefault();
-            const sortKey = header.dataset ? header.dataset.sortKey : null;
-            handleAdminSort(sortKey);
-        });
-    });
-
-    updateAdminSortIndicators();
 });
 
 // Event Listeners
@@ -1425,12 +1145,7 @@ function handleLogout() {
 function showLoginForm() {
     stopTrombiUpdates();
     resetTrombiDisplay();
-    stopAdminOverviewUpdates();
-    resetAdminOverviewDisplay();
     currentPlayerIsAdmin = false;
-    if (adminOverviewSection) {
-        adminOverviewSection.classList.add('hidden');
-    }
     if (podiumSection) {
         podiumSection.classList.add('hidden');
     }
@@ -1457,6 +1172,14 @@ function showPlayerInterface(data) {
     currentPlayerGender = data.player.gender || null;
     viewerStatus = (data.player.status || 'alive').toLowerCase();
     currentPlayerIsAdmin = Boolean(data.player.is_admin);
+    
+    // Définir la catégorie par défaut selon si l'utilisateur est admin ou non
+    if (currentPlayerIsAdmin) {
+        currentTrombiCategory = 'all';
+    } else {
+        currentTrombiCategory = 'players';
+    }
+    
     loginContainer.classList.add('hidden');
     playerContainer.classList.remove('hidden');
     
@@ -1478,24 +1201,13 @@ function showPlayerInterface(data) {
         playerNicknameHeader.textContent = normalizedPlayerNickname || "Joueur";
     }
     
-    // Afficher les statistiques pour les non-admins
-    if (!currentPlayerIsAdmin) {
-        // Compter le nombre de joueurs vivants restants (on utilisera trombiPlayers une fois chargé)
-        // Pour l'instant, on masque ces éléments et on les mettra à jour après le chargement du trombi
-        if (playerRemainingTargets) {
-            playerRemainingTargets.classList.add('hidden');
-        }
-        if (playerKillCount) {
-            playerKillCount.classList.add('hidden');
-        }
-    } else {
-        // Pour les admins, masquer complètement ces éléments
-        if (playerRemainingTargets) {
-            playerRemainingTargets.classList.add('hidden');
-        }
-        if (playerKillCount) {
-            playerKillCount.classList.add('hidden');
-        }
+    // Afficher les statistiques
+    // Pour l'instant, on masque ces éléments et on les mettra à jour après le chargement du trombi
+    if (playerRemainingTargets) {
+        playerRemainingTargets.classList.add('hidden');
+    }
+    if (playerKillCount) {
+        playerKillCount.classList.add('hidden');
     }
     
     // Gérer l'état du joueur (mort, vivant, abandonné, admin)
@@ -1561,17 +1273,6 @@ function showPlayerInterface(data) {
     } else {
         if (playerPersonPhotoContainer) playerPersonPhotoContainer.classList.add('hidden');
     }
-    
-    if (adminOverviewSection) {
-        if (currentPlayerIsAdmin) {
-            adminOverviewSection.classList.remove('hidden');
-            startAdminOverviewUpdates();
-        } else {
-            adminOverviewSection.classList.add('hidden');
-            stopAdminOverviewUpdates();
-            resetAdminOverviewDisplay();
-        }
-    }
 
     // Les photos de pieds du joueur principal ne sont plus affichées dans le nouveau design
     // Le code est conservé pour la compatibilité avec les anciennes versions
@@ -1600,12 +1301,19 @@ function showPlayerInterface(data) {
     } else {
         if (targetCard) targetCard.classList.add('hidden');
         if (noTargetMessage) {
-            // Message différent selon si c'est un admin ou un joueur sans cible
+            // Message différent selon si c'est un admin, un joueur mort, ou un joueur sans cible
             if (currentPlayerIsAdmin) {
                 noTargetMessage.textContent = "Tu n'as pas de cible, car l'admin ne s'associe pas avec le cafard.";
                 // Masquer le titre "TA CIBLE" pour les admins
                 if (targetSectionTitle) {
                     targetSectionTitle.classList.add('hidden');
+                }
+            } else if (viewerStatus === 'dead' || viewerStatus === 'gaveup') {
+                // Message pour les joueurs morts ou qui ont abandonné
+                noTargetMessage.textContent = `Tu t'es pas ${accord(currentPlayerGender, 'géré gros fyot', 'gérée grosse fyote')}. La str continue sans toi !`;
+                // Afficher le titre pour les joueurs morts
+                if (targetSectionTitle) {
+                    targetSectionTitle.classList.remove('hidden');
                 }
             } else {
                 noTargetMessage.textContent = `Y'a plus rien à faire ! (${accord(currentPlayerGender, 'fyot', 'fyote')})`;
