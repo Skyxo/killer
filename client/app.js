@@ -44,6 +44,9 @@ const deadPlayerInfo = document.getElementById('dead-player-info');
 const aliveCountMessage = document.getElementById('alive-count-message');
 const podiumSection = document.getElementById('podium-section');
 const gameOverMessage = document.getElementById('game-over-message');
+const leaderboardSection = document.getElementById('leaderboard-section');
+const leaderboardList = document.getElementById('leaderboard-list');
+const leaderboardEmpty = document.getElementById('leaderboard-empty');
 
 let trombiIntervalId = null;
 let currentPlayerNickname = null;
@@ -123,12 +126,14 @@ function closePhotoModal() {
 function startTrombiUpdates() {
     loadTrombi();
     loadPodium();
+    loadLeaderboard();
     if (trombiIntervalId) {
         clearInterval(trombiIntervalId);
     }
     trombiIntervalId = setInterval(() => {
         loadTrombi();
         loadPodium();
+        loadLeaderboard();
     }, 30000);
 }
 
@@ -286,8 +291,14 @@ function updateDeadPlayerInfo() {
     if (isDead && trombiPlayers) {
         // Compter les joueurs vivants
         const aliveCount = trombiPlayers.filter(p => p.status === 'alive').length;
-        aliveCountMessage.textContent = `Il reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} vivant${aliveCount > 1 ? 's' : ''}`;
-        deadPlayerInfo.classList.remove('hidden');
+        
+        // Cacher le message si le jeu est terminé (1 joueur ou moins)
+        if (aliveCount <= 1) {
+            deadPlayerInfo.classList.add('hidden');
+        } else {
+            aliveCountMessage.textContent = `Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie`;
+            deadPlayerInfo.classList.remove('hidden');
+        }
     } else {
         deadPlayerInfo.classList.add('hidden');
     }
@@ -379,7 +390,8 @@ function renderTrombi() {
             entryButton.classList.add('selected');
         }
 
-        if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
+        // Seuls les admins peuvent voir les statuts vivant/mort dans le trombinoscope
+        if (currentPlayerIsAdmin && typeof player.status === 'string' && player.status) {
             const statusChip = document.createElement('span');
             const normalizedStatus = player.status.toLowerCase();
             statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
@@ -488,7 +500,8 @@ function renderTrombiDetails(player) {
     metaContainer.classList.add('trombi-meta');
     let metaHasContent = false;
 
-    if (viewerCanSeeStatus && typeof player.status === 'string' && player.status) {
+    // Seuls les admins peuvent voir les statuts vivant/mort dans le trombinoscope
+    if (currentPlayerIsAdmin && typeof player.status === 'string' && player.status) {
         const statusBadge = document.createElement('span');
         const normalizedStatus = player.status.toLowerCase();
         statusBadge.classList.add('status-pill', `status-${normalizedStatus}`);
@@ -549,11 +562,42 @@ function renderTrombiDetails(player) {
 
     trombiDetails.appendChild(photoContainer);
 
-    if (viewerCanSeeStatus && player.status && player.status.toLowerCase() === 'dead') {
+    // Afficher le message personnalisé basé sur les réponses du joueur
+    if (player.before_answer || player.kro_answer) {
         const info = document.createElement('p');
         info.classList.add('trombi-status-info');
-        info.textContent = 'Ce joueur est un gros fyot.';
-        trombiDetails.appendChild(info);
+        
+        let message = '';
+        
+        // Message basé sur "Est-ce que c'était mieux avant ?"
+        const beforeAnswer = (player.before_answer || '').toLowerCase().trim();
+        if (beforeAnswer === 'oui' || beforeAnswer === 'yes') {
+            message = 'Ce joueur est sénile';
+        } else if (beforeAnswer) {
+            message = 'Ce fyot ne pense pas que c\'était mieux avant';
+        }
+        
+        // Ajouter la réponse sur les quarts dans une krô
+        const kroAnswer = (player.kro_answer || '').trim();
+        if (kroAnswer) {
+            if (message) {
+                message += ' et pense qu\'il y a ';
+            } else {
+                message = 'Ce joueur pense qu\'il y a ';
+            }
+            
+            // Si la réponse contient "Réponse B", ajouter "(gros fyot)"
+            if (kroAnswer.toLowerCase().includes('réponse b') || kroAnswer.toLowerCase().includes('reponse b')) {
+                message += `${kroAnswer} quarts dans une krô (gros fyot)`;
+            } else {
+                message += `${kroAnswer} quarts dans une krô`;
+            }
+        }
+        
+        if (message) {
+            info.textContent = message;
+            trombiDetails.appendChild(info);
+        }
     }
 }
 
@@ -869,12 +913,112 @@ function renderPodium(podium) {
         }
 
         if (nameElement) {
-            nameElement.textContent = player.nickname || '???';
+            const kills = player.kill_count || 0;
+            nameElement.textContent = `${player.nickname || '???'} (${kills} kill${kills > 1 ? 's' : ''})`;
         }
 
         if (yearElement && player.year) {
             yearElement.textContent = player.year;
         }
+    });
+}
+
+/**
+ * Charge le podium des meilleurs killers
+ */
+// Charger le leaderboard permanent des tueurs
+async function loadLeaderboard() {
+    try {
+        const response = await fetch('/api/leaderboard', {
+            method: 'GET',
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            console.error('Erreur lors du chargement du leaderboard:', response.status);
+            return;
+        }
+
+        const data = await response.json();
+        
+        // Filtrer les joueurs avec au moins 1 kill
+        const playersWithKills = (data.leaderboard || []).filter(player => (player.kill_count || 0) > 0);
+        
+        if (playersWithKills.length === 0) {
+            // Afficher le message "Soit le premier à faire un kill !"
+            if (leaderboardList) leaderboardList.classList.add('hidden');
+            if (leaderboardEmpty) leaderboardEmpty.classList.remove('hidden');
+        } else {
+            // Afficher le leaderboard
+            if (leaderboardEmpty) leaderboardEmpty.classList.add('hidden');
+            if (leaderboardList) leaderboardList.classList.remove('hidden');
+            renderLeaderboard(playersWithKills);
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement du leaderboard:', error);
+    }
+}
+
+// Afficher le leaderboard
+function renderLeaderboard(players) {
+    leaderboardList.innerHTML = '';
+    
+    // Grouper les joueurs par nombre de kills (valeurs uniques triées)
+    const killCounts = [...new Set(players.map(p => p.kill_count || 0))].sort((a, b) => b - a);
+    
+    // Attribuer les médailles selon les groupes de kills
+    // 1er groupe (plus de kills) = Or, 2ème groupe = Argent, 3ème groupe = Bronze
+    const getMedalTier = (killCount) => {
+        const index = killCounts.indexOf(killCount);
+        if (index === 0) return 1; // Or
+        if (index === 1) return 2; // Argent
+        if (index === 2) return 3; // Bronze
+        return 0; // Pas de médaille
+    };
+    
+    players.forEach((player, index) => {
+        const rank = index + 1;
+        const killCount = player.kill_count || 0;
+        const medalTier = getMedalTier(killCount);
+        
+        const entry = document.createElement('div');
+        entry.className = 'leaderboard-entry';
+        
+        // Classe spéciale pour les médailles
+        let rankClass = '';
+        let rankDisplay = rank;
+        
+        if (medalTier === 1) {
+            rankClass = ' rank-1';
+            rankDisplay = '🥇';
+        } else if (medalTier === 2) {
+            rankClass = ' rank-2';
+            rankDisplay = '🥈';
+        } else if (medalTier === 3) {
+            rankClass = ' rank-3';
+            rankDisplay = '🥉';
+        }
+        
+        const photoUrl = getDriveImageUrl(player.person_photo, 500);
+        
+        entry.innerHTML = `
+            <div class="leaderboard-rank${rankClass}">${rankDisplay}</div>
+            <div class="leaderboard-photo-container">
+                <img src="${photoUrl}" 
+                     alt="${player.nickname}"
+                     class="leaderboard-photo"
+                     loading="lazy">
+            </div>
+            <div class="leaderboard-info">
+                <div>
+                    <span class="leaderboard-name">${player.nickname}</span>
+                    <span class="leaderboard-year">${player.year}</span>
+                </div>
+                <div class="leaderboard-kills">${killCount}</div>
+            </div>
+        `;
+        
+        leaderboardList.appendChild(entry);
     });
 }
 
@@ -1235,7 +1379,7 @@ function showPlayerInterface(data) {
     } else {
         if (targetCard) targetCard.classList.add('hidden');
         if (noTargetMessage) {
-            noTargetMessage.textContent = "Vous n'avez pas de cible active. Le jeu est peut-être terminé ou vous êtes le dernier survivant !";
+            noTargetMessage.textContent = "Y'a plus rien à faire ! (fyot)";
             noTargetMessage.classList.remove('hidden');
         }
     }
@@ -1378,7 +1522,7 @@ function handleKilled(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert("Vous avez été marqué comme éliminé. Merci d'avoir participé au jeu!");
+            alert("T'es définitivement éliminé ! aller on retourne capser hophop fyot");
             // Mettre à jour l'interface pour montrer que le joueur est mort
             targetCard.classList.add('hidden');
             noTargetMessage.textContent = "Tu t'es pas géré gros fyot. La str continue sans toi !";
@@ -1398,6 +1542,7 @@ function handleKilled(e) {
             viewerCanSeeStatus = true;
             loadTrombi();
             loadPodium();
+            loadLeaderboard();
         } else {
             alert(`Erreur: ${data.message}`);
         }
@@ -1447,6 +1592,7 @@ function handleGiveUp(e) {
             viewerStatus = 'gaveup';
             viewerCanSeeStatus = false;
             loadTrombi();
+            loadLeaderboard();
         } else {
             alert(`Erreur: ${data.message}`);
         }

@@ -157,9 +157,10 @@ SHEET_COLUMNS = {
     "INITIAL_ACTION": 12, # Action initiale
     "CURRENT_ACTION": 13, # Action actuelle
     "STATUS": 14,     # État (alive/dead/gaveup)
-    "ELIMINATION_ORDER": 15, # Ordre d'élimination (numéro)
-    "ADMIN_FLAG": 16, # Indique si le joueur est administrateur (True/False)
-    "PHONE": 17,      # Téléphone
+    "ELIMINATION_ORDER": 15, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
+    "KILL_COUNT": 16, # Nombre de kills
+    "ADMIN_FLAG": 17, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 18,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -682,11 +683,15 @@ def kill():
                 next_target_nickname = ""
                 next_target_action = ""
         
-        # 1. Mettre à jour le killer avec la nouvelle cible
+        # 1. Incrémenter le nombre de kills du killer
+        killer_kills = killer.get("kill_count", 0)
+        sheet.update_cell(killer["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(killer_kills + 1))
+        
+        # 2. Mettre à jour le killer avec la nouvelle cible
         sheet.update_cell(killer["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname)
         sheet.update_cell(killer["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target_action)
         
-        # 2. Marquer la victime comme morte et vider sa cible actuelle
+        # 3. Marquer la victime comme morte et vider sa cible actuelle
         sheet.update_cell(victim["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
         sheet.update_cell(victim["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
         sheet.update_cell(victim["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
@@ -731,12 +736,13 @@ def killed():
         if player["status"].lower() == "dead":
             return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 400
         
-        # Compter combien de joueurs sont déjà morts pour déterminer l'ordre d'élimination
+        # Compter combien de joueurs actifs (elimination_order >= 0) sont déjà morts
         all_players = get_all_players()
-        dead_count = sum(1 for p in all_players if p.get("status", "").lower() == "dead")
-        elimination_order = dead_count + 1
+        active_players = [p for p in all_players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+        dead_active_count = sum(1 for p in active_players if p.get("status", "").lower() == "dead")
+        elimination_order = dead_active_count + 1
         
-        print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actuels: {dead_count})")
+        print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actifs actuels: {dead_active_count})")
         
         # 1. Marquer le joueur comme mort et enregistrer l'ordre d'élimination
         sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
@@ -755,14 +761,25 @@ def killed():
                 assassin = p
                 break
         
-        # Si on a trouvé l'assassin, lui donner la cible du joueur tué et incrémenter son score
+        # Si on a trouvé l'assassin, lui donner la cible du joueur tué et incrémenter son kill_count
         if assassin:
             new_target = player.get("target") or ""
             new_action = player.get("action") or ""
+            
+            # Incrémenter le nombre de kills de l'assassin
+            assassin_kills = assassin.get("kill_count", 0)
+            sheet.update_cell(assassin["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(assassin_kills + 1))
+            
+            # Mettre à jour la cible de l'assassin
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, new_action)
+            
+            print(f"[KILLED] {assassin['nickname']} a tué {player['nickname']} et récupère la cible {new_target}. Total kills: {assassin_kills + 1}")
         
-        # 3. Garder la cible du joueur mort (ne pas vider les champs)
+        # 3. Vider la cible actuelle du joueur mort pour éviter les conflits
+        # IMPORTANT: Garder initial_target et initial_action intacts pour référence
+        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
+        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
         
         return jsonify({
             "success": True,
@@ -867,26 +884,29 @@ def get_podium():
     except ConnectionError as e:
         return jsonify({"success": False, "message": str(e)}), 503
 
-    # Filtrer seulement les joueurs vivants
-    alive_players = [p for p in players if (p.get("status") or "alive").lower() == "alive"]
+    # Filtrer seulement les joueurs actifs (elimination_order >= 0, excluant ceux avec -1)
+    active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
     
-    # Vérifier si le jeu est terminé (1 ou moins de joueurs vivants)
+    # Filtrer seulement les joueurs vivants parmi les actifs
+    alive_players = [p for p in active_players if (p.get("status") or "alive").lower() == "alive"]
+    
+    # Vérifier si le jeu est terminé (1 ou moins de joueurs vivants actifs)
     game_over = len(alive_players) <= 1
     
     if not game_over:
         return jsonify({"success": True, "game_over": False, "podium": []})
     
     # Le jeu est terminé, créer le podium
-    # Podium = les 3 derniers joueurs éliminés (ordre inversé)
+    # Podium = les 3 derniers joueurs actifs éliminés (ordre inversé)
     # On prend d'abord les joueurs vivants (gagnants), puis les morts par ordre décroissant d'élimination
     
-    dead_players = [p for p in players if (p.get("status") or "alive").lower() == "dead"]
+    dead_active_players = [p for p in active_players if (p.get("status") or "alive").lower() == "dead"]
     
-    # Séparer les joueurs morts avec et sans ordre d'élimination
+    # Séparer les joueurs morts avec ordre d'élimination valide (> 0)
     dead_with_order = []
     dead_without_order = []
     
-    for p in dead_players:
+    for p in dead_active_players:
         order_str = p.get("elimination_order", "")
         try:
             order_num = int(order_str) if order_str else 0
@@ -911,6 +931,11 @@ def get_podium():
     # Prendre les 3 premiers pour le podium
     podium = []
     for i, player in enumerate(podium_players[:3]):
+        kill_count = player.get("kill_count", 0)
+        # S'assurer que kill_count est un entier
+        if isinstance(kill_count, str):
+            kill_count = _parse_int(kill_count, 0)
+        
         podium.append({
             "rank": i + 1,
             "nickname": player.get("nickname", ""),
@@ -918,39 +943,112 @@ def get_podium():
             "feet_photo": player.get("feet_photo", ""),
             "year": player.get("year", ""),
             "status": player.get("status", "alive"),
-            "elimination_order": player.get("elimination_order", "")
+            "elimination_order": player.get("elimination_order", ""),
+            "kill_count": int(kill_count) if kill_count else 0
         })
+    
+    return jsonify({"success": True, "game_over": True, "podium": podium})
+
+@app.route("/api/podium/kills", methods=["GET"])
+def get_kills_podium():
+    """Retourne le podium des 3 joueurs avec le plus de kills"""
+    if "nickname" not in session:
+        return jsonify({"success": False, "message": "Non connecté"}), 401
+
+    try:
+        players = get_all_players()
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    # Filtrer seulement les joueurs actifs (elimination_order >= 0)
+    active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+    
+    # Filtrer seulement les joueurs vivants parmi les actifs
+    alive_players = [p for p in active_players if (p.get("status") or "alive").lower() == "alive"]
+    
+    # Vérifier si le jeu est terminé
+    game_over = len(alive_players) <= 1
+    
+    if not game_over:
+        return jsonify({"success": True, "game_over": False, "podium": []})
+    
+    # Trier tous les joueurs actifs par nombre de kills décroissant
+    players_by_kills = sorted(
+        active_players,
+        key=lambda p: p.get("kill_count", 0),
+        reverse=True
+    )
+    
+    # Grouper par nombre de kills pour attribuer les médailles
+    # On prend les 3 groupes de kills différents (or, argent, bronze)
+    kill_counts = []
+    for player in players_by_kills:
+        kill_count = player.get("kill_count", 0)
+        if kill_count not in kill_counts:
+            kill_counts.append(kill_count)
+    
+    # Prendre tous les joueurs qui ont l'un des 3 meilleurs scores
+    top_3_kill_counts = kill_counts[:3]
+    
+    podium = []
+    for player in players_by_kills:
+        kill_count = player.get("kill_count", 0)
+        if kill_count in top_3_kill_counts:
+            # Déterminer le rang (1=or, 2=argent, 3=bronze) selon le groupe de kills
+            rank = top_3_kill_counts.index(kill_count) + 1
+            podium.append({
+                "rank": rank,
+                "nickname": player.get("nickname", ""),
+                "person_photo": player.get("person_photo", ""),
+                "feet_photo": player.get("feet_photo", ""),
+                "year": player.get("year", ""),
+                "kill_count": kill_count,
+                "status": player.get("status", "alive")
+            })
     
     return jsonify({"success": True, "game_over": True, "podium": podium})
 
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
-    sheet = require_sheet_client()
-    data = sheet.get_all_values()
+    try:
+        sheet = require_sheet_client()
+        data = sheet.get_all_values()
+    except Exception as e:
+        print(f"[GET_ALL_PLAYERS] Erreur accès sheet: {e}")
+        raise ConnectionError(f"Impossible d'accéder au Google Sheet: {str(e)}")
     
     players = []
     # Ignorer la ligne d'en-tête
     for i, row in enumerate(data[1:], 2):
-        if len(row) <= SHEET_COLUMNS["NICKNAME"]:
-            continue  # Ignorer les lignes incomplètes
+        try:
+            if len(row) <= SHEET_COLUMNS["NICKNAME"]:
+                continue  # Ignorer les lignes incomplètes
 
-        nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
-        nickname = nickname_raw.strip()
+            nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
+            nickname = nickname_raw.strip()
 
-        # Ignorer les lignes sans surnom valide
-        if not nickname:
+            # Ignorer les lignes sans surnom valide
+            if not nickname:
+                continue
+
+            status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
+            status = _normalize_status(status_raw)
+            admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
+
+            year_raw = (row[SHEET_COLUMNS["YEAR"]] or "").strip() if len(row) > SHEET_COLUMNS["YEAR"] else ""
+            year = year_raw.upper() if year_raw else ""
+
+            phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
+
+            elimination_order = (row[SHEET_COLUMNS["ELIMINATION_ORDER"]] or "").strip() if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else ""
+
+            kill_count_raw = (row[SHEET_COLUMNS["KILL_COUNT"]] or "").strip() if len(row) > SHEET_COLUMNS["KILL_COUNT"] else "0"
+            kill_count = _parse_int(kill_count_raw, 0)
+        except Exception as e:
+            print(f"[GET_ALL_PLAYERS] Erreur parsing ligne {i} ({nickname_raw if 'nickname_raw' in locals() else '?'}): {e}")
+            import traceback
+            traceback.print_exc()
             continue
-
-        status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
-        status = _normalize_status(status_raw)
-        admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
-
-        year_raw = (row[SHEET_COLUMNS["YEAR"]] or "").strip() if len(row) > SHEET_COLUMNS["YEAR"] else ""
-        year = year_raw.upper() if year_raw else ""
-
-        phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
-
-        elimination_order = (row[SHEET_COLUMNS["ELIMINATION_ORDER"]] or "").strip() if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else ""
 
         players.append({
             "row": i,
@@ -971,6 +1069,7 @@ def get_all_players():
             "is_admin": _parse_admin_flag(admin_flag_value),
             "phone": phone,
             "elimination_order": elimination_order,
+            "kill_count": kill_count,
         })
 
     return players
@@ -1001,36 +1100,40 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "is_self": bool(viewer_nickname and nickname and nickname.lower() == viewer_nickname.lower()),
         "is_admin": bool(player.get("is_admin")),
         "phone": phone,
+        "kro_answer": player.get("kro_answer", "") or "",
+        "before_answer": player.get("before_answer", "") or "",
     }
 
 
 def _viewer_can_see_status(viewer_status: Optional[str], is_admin: bool) -> bool:
-    normalized = _normalize_status(viewer_status)
-    if normalized == "dead":
-        return True
+    # Seuls les admins peuvent voir les statuts vivant/mort
     return bool(is_admin)
 
 
 @app.route("/api/leaderboard", methods=["GET"])
 def get_leaderboard():
+    """Retourne le top 10 des joueurs avec le plus de kills (sans révéler leur statut)"""
     try:
         players = get_all_players()
+        
+        # Filtrer seulement les joueurs actifs (elimination_order >= 0)
+        active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+        
         leaderboard = []
-        for player in players:
+        for player in active_players:
             leaderboard.append(
                 {
                     "nickname": player.get("nickname", ""),
-                    "kill_count": _parse_int(player.get("kill_count", 0), 0),
-                    "status": (player.get("status") or "alive").lower(),
-                    "is_admin": bool(player.get("is_admin")),
-                    "target": player.get("target") or "",
-                    "action": player.get("action") or "",
+                    "kill_count": player.get("kill_count", 0),
+                    "year": player.get("year", ""),
+                    "person_photo": player.get("person_photo", ""),
                 }
             )
 
         leaderboard.sort(key=lambda entry: (-entry["kill_count"], entry["nickname"].lower()))
 
-        return jsonify({"success": True, "leaderboard": leaderboard})
+        # Prendre les 10 premiers
+        return jsonify({"success": True, "leaderboard": leaderboard[:10]})
     except ConnectionError as e:
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
@@ -1046,7 +1149,13 @@ def get_trombi():
     try:
         viewer = get_player_by_nickname(session["nickname"])
     except ConnectionError as e:
+        print(f"[TROMBI] Erreur de connexion get_player_by_nickname: {e}")
         return jsonify({"success": False, "message": str(e)}), 503
+    except Exception as e:
+        print(f"[TROMBI] Erreur inattendue get_player_by_nickname: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
 
     if not viewer:
         session.clear()
@@ -1057,7 +1166,13 @@ def get_trombi():
     try:
         players = get_all_players()
     except ConnectionError as e:
+        print(f"[TROMBI] Erreur de connexion get_all_players: {e}")
         return jsonify({"success": False, "message": str(e)}), 503
+    except Exception as e:
+        print(f"[TROMBI] Erreur inattendue get_all_players: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
 
     entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in players]
     entries.sort(key=lambda entry: (
