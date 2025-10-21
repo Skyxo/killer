@@ -574,7 +574,7 @@ function renderTrombiDetails(player) {
         if (beforeAnswer === 'oui' || beforeAnswer === 'yes') {
             message = 'Ce joueur est sénile';
         } else if (beforeAnswer) {
-            message = 'Ce fyot ne pense pas que c\'était mieux avant';
+            message = 'Ce fyot pense que c\'était pas mieux avant';
         }
         
         // Ajouter la réponse sur les quarts dans une krô
