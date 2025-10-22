@@ -169,6 +169,11 @@ _sheet_cache_lock = threading.Lock()
 _cached_sheet = None
 _cached_sheet_timestamp = 0.0
 
+# Cache pour les données des joueurs
+_players_cache = None
+_players_cache_timestamp = 0.0
+_players_cache_ttl = 5.0  # 5 secondes de cache pour les données joueurs
+
 
 class AuthorizedSessionWithTimeout(AuthorizedSession):
     """Session autorisée Google avec timeout par défaut."""
@@ -201,6 +206,14 @@ def _store_sheet_in_cache(sheet):
     global _cached_sheet, _cached_sheet_timestamp
     _cached_sheet = sheet
     _cached_sheet_timestamp = time.time()
+
+
+def invalidate_players_cache():
+    """Invalide le cache des joueurs après une modification"""
+    global _players_cache, _players_cache_timestamp
+    with _sheet_cache_lock:
+        _players_cache = None
+        _players_cache_timestamp = 0.0
 
 
 def _parse_int(value: Optional[str], default: int = 0) -> int:
@@ -767,8 +780,7 @@ def killed():
         sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
         
         # Invalider le cache pour forcer le rechargement
-        global _cached_sheet
-        _cached_sheet = None
+        invalidate_players_cache()
         
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
         # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
@@ -834,8 +846,7 @@ def give_up():
         sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
 
         # Invalider le cache pour forcer le rechargement
-        global _cached_sheet
-        _cached_sheet = None 
+        invalidate_players_cache() 
 
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
         if player.get("target"):
@@ -1038,6 +1049,15 @@ def get_kills_podium():
 
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
+    """Récupère tous les joueurs avec un cache de 5 secondes"""
+    global _players_cache, _players_cache_timestamp
+    
+    # Vérifier le cache
+    now = time.time()
+    with _sheet_cache_lock:
+        if _players_cache is not None and (now - _players_cache_timestamp) < _players_cache_ttl:
+            return _players_cache
+    
     try:
         sheet = require_sheet_client()
         data = sheet.get_all_values()
@@ -1104,6 +1124,11 @@ def get_all_players():
             "kill_count": kill_count,
         })
 
+    # Mettre en cache les résultats
+    with _sheet_cache_lock:
+        _players_cache = players
+        _players_cache_timestamp = time.time()
+    
     return players
 
 

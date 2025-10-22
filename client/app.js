@@ -93,7 +93,7 @@ function playRandomPetSound() {
     currentPetSoundIndex = (currentPetSoundIndex + 1) % petSounds.length;
 }
 
-function getDriveImageUrl(fileId, size = 600) {
+function getDriveImageUrl(fileId, size = 400) {
     if (!fileId || typeof fileId !== 'string') {
         return '';
     }
@@ -102,7 +102,8 @@ function getDriveImageUrl(fileId, size = 600) {
         return '';
     }
     const encodedId = encodeURIComponent(trimmedId);
-    const cacheBuster = Math.floor(Date.now() / 60000);
+    // Cache plus long : 5 minutes au lieu de 1 minute
+    const cacheBuster = Math.floor(Date.now() / 300000);
     const sizeParam = Number.isFinite(size) && size > 0 ? `&sz=w${Math.round(size)}` : '';
     return `https://drive.google.com/thumbnail?id=${encodedId}${sizeParam}&cache=${cacheBuster}`;
 }
@@ -141,11 +142,12 @@ function startTrombiUpdates() {
     if (trombiIntervalId) {
         clearInterval(trombiIntervalId);
     }
+    // Augmenter l'intervalle à 45 secondes pour réduire la charge serveur
     trombiIntervalId = setInterval(() => {
         loadLeaderboard();
         loadTrombi();
         loadPodium();
-    }, 30000);
+    }, 45000);
 }
 
 function stopTrombiUpdates() {
