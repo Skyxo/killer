@@ -67,7 +67,8 @@ let currentTrombiSelection = null;
 let viewerCanSeeStatus = false;
 let viewerStatus = 'alive';
 let currentPlayerIsAdmin = false;
-let currentTrombiCategory = 'all';
+let currentTrombiCategory = 'players';
+let currentYearFilter = 'all';
 
 // Sons de pet disponibles
 const petSounds = [
@@ -218,6 +219,7 @@ function loadTrombi() {
                 return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base', ignorePunctuation: true });
             });
             updateTrombiCategoryButtons();
+            updateYearFilterButtons();
             updateDeadPlayerInfo();
             updatePlayerStats();
             renderTrombi();
@@ -244,31 +246,117 @@ function updatePlayerStats() {
     }
 }
 
+function updateYearFilterButtons() {
+    const yearFiltersContainer = document.getElementById('trombi-year-filters');
+    if (!yearFiltersContainer) return;
+    
+    // Extraire toutes les années uniques des joueurs (non-admins seulement)
+    const years = new Set();
+    trombiPlayers.forEach(player => {
+        if (!player.is_admin && player.year) {
+            years.add(player.year);
+        }
+    });
+    
+    // Trier les années (0A, 2A, 3A, 4A, 5A, etc.)
+    const sortedYears = Array.from(years).sort((a, b) => {
+        const numA = parseInt(a);
+        const numB = parseInt(b);
+        return numA - numB;
+    });
+    
+    // Générer les boutons
+    yearFiltersContainer.innerHTML = '';
+    
+    // Bouton "Tous"
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'trombi-year-btn active';
+    allBtn.dataset.year = 'all';
+    allBtn.textContent = 'Tous';
+    yearFiltersContainer.appendChild(allBtn);
+    
+    // Boutons pour chaque année
+    sortedYears.forEach(year => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'trombi-year-btn';
+        btn.dataset.year = year;
+        btn.textContent = year;
+        yearFiltersContainer.appendChild(btn);
+    });
+    
+    // Ajouter les événements de clic
+    const yearButtons = yearFiltersContainer.querySelectorAll('.trombi-year-btn');
+    yearButtons.forEach(btn => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            
+            const year = btn.dataset.year;
+            if (year && year !== currentYearFilter) {
+                currentYearFilter = year;
+                
+                // Réinitialiser la sélection
+                currentTrombiSelection = null;
+                
+                // Vider les détails du trombinoscope
+                if (trombiDetails) {
+                    trombiDetails.innerHTML = '<p class="trombi-placeholder">Sélectionne un joueur pour découvrir son profil.</p>';
+                }
+                
+                // Mettre à jour l'état actif des boutons
+                yearButtons.forEach(yb => yb.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Re-rendre le trombinoscope avec le filtre
+                renderTrombi();
+            }
+        });
+    });
+    
+    // Afficher les filtres d'année si la catégorie active est "players"
+    if (currentTrombiCategory === 'players') {
+        yearFiltersContainer.classList.remove('hidden');
+    } else {
+        yearFiltersContainer.classList.add('hidden');
+    }
+}
+
 function updateTrombiCategoryButtons() {
     const categoryButtons = document.querySelectorAll('.trombi-category-btn');
+    
+    console.log('=== updateTrombiCategoryButtons ===');
+    console.log('currentPlayerIsAdmin:', currentPlayerIsAdmin);
+    console.log('Nombre de boutons trouvés:', categoryButtons.length);
     
     categoryButtons.forEach(btn => {
         const category = btn.dataset.category;
         const isAdminOnly = btn.classList.contains('admin-only');
         const isNonAdminOnly = btn.classList.contains('non-admin-only');
         
+        console.log(`Bouton "${category}":`, {
+            isAdminOnly,
+            isNonAdminOnly,
+            currentClasses: btn.className
+        });
+        
         if (currentPlayerIsAdmin) {
             // Pour les admins : afficher les catégories admin, cacher les catégories non-admin
             if (isAdminOnly) {
-                btn.style.removeProperty('display');
                 btn.classList.remove('hidden');
+                console.log(`  -> Affichage bouton admin "${category}"`);
             } else if (isNonAdminOnly) {
-                btn.style.display = 'none';
                 btn.classList.add('hidden');
+                console.log(`  -> Masquage bouton non-admin "${category}"`);
             }
         } else {
             // Pour les non-admins : afficher les catégories non-admin, cacher les catégories admin
             if (isNonAdminOnly) {
-                btn.style.removeProperty('display');
                 btn.classList.remove('hidden');
+                console.log(`  -> Affichage bouton non-admin "${category}"`);
             } else if (isAdminOnly) {
-                btn.style.display = 'none';
                 btn.classList.add('hidden');
+                console.log(`  -> Masquage bouton admin "${category}"`);
             }
         }
         
@@ -279,6 +367,8 @@ function updateTrombiCategoryButtons() {
             btn.classList.remove('active');
         }
     });
+    
+    console.log('currentTrombiCategory:', currentTrombiCategory);
 }
 
 function updateDeadPlayerInfo() {
@@ -308,28 +398,52 @@ function renderTrombi() {
 
     // Filtrer selon la catégorie sélectionnée
     const filteredPlayers = trombiPlayers.filter(player => {
+        console.log(`Filtrage joueur "${player.nickname}":`, {
+            category: currentTrombiCategory,
+            is_admin: player.is_admin,
+            status: player.status,
+            year: player.year
+        });
+        
+        let categoryMatch = false;
+        
         if (currentTrombiCategory === 'all') {
-            return true;
+            categoryMatch = true;
         } else if (currentTrombiCategory === 'alive') {
             const status = (player.status || 'alive').toLowerCase();
             // Exclure les admins de la catégorie "vivants"
-            return status === 'alive' && !player.is_admin;
+            categoryMatch = status === 'alive' && !player.is_admin;
+            console.log(`  -> alive filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'dead') {
             const status = (player.status || 'alive').toLowerCase();
             // Pour la catégorie "Morts", ne plus inclure les abandons
-            return status === 'dead';
+            categoryMatch = status === 'dead';
+            console.log(`  -> dead filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'gaveup') {
             const status = (player.status || 'alive').toLowerCase();
             // Catégorie "Abandons" - uniquement pour les admins
-            return status === 'gaveup';
+            categoryMatch = status === 'gaveup';
+            console.log(`  -> gaveup filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'players') {
             // Catégorie "Joueurs" pour les non-admins : tous les joueurs SAUF les admins
-            return !player.is_admin;
+            categoryMatch = !player.is_admin;
+            console.log(`  -> players filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'admins') {
             // Catégorie "Admins" pour les non-admins : seulement les admins
-            return player.is_admin;
+            categoryMatch = player.is_admin;
+            console.log(`  -> admins filter result: ${categoryMatch}`);
+        } else {
+            categoryMatch = true;
         }
-        return true;
+        
+        // Si on est dans la catégorie "Joueurs", appliquer le filtre d'année
+        if (categoryMatch && currentTrombiCategory === 'players' && currentYearFilter !== 'all') {
+            const yearMatch = player.year === currentYearFilter;
+            console.log(`  -> year filter (${currentYearFilter}): ${yearMatch}`);
+            return yearMatch;
+        }
+        
+        return categoryMatch;
     });
 
     if (filteredPlayers.length === 0) {
@@ -382,7 +496,9 @@ function renderTrombi() {
         }
 
         if (player.is_admin) {
-            labelWrapper.appendChild(createAdminBadge());
+            const adminBadge = createAdminBadge();
+            console.log('Ajout du badge admin pour:', player.nickname);
+            labelWrapper.appendChild(adminBadge);
         }
 
         entryButton.appendChild(labelWrapper);
@@ -412,16 +528,14 @@ function renderTrombi() {
         trombiList.appendChild(entryButton);
     });
 
-    if (!currentTrombiSelection && filteredPlayers.length > 0) {
-        selectTrombiEntry(filteredPlayers[0].nickname || '');
-    } else if (currentTrombiSelection) {
+    // Ne plus sélectionner automatiquement le premier joueur
+    // Sélectionner uniquement si un joueur était déjà sélectionné et est toujours dans la liste filtrée
+    if (currentTrombiSelection) {
         const isCurrentInFiltered = filteredPlayers.some(p => 
             (p.nickname || '').trim().toLowerCase() === currentTrombiSelection.toLowerCase()
         );
         if (isCurrentInFiltered) {
             selectTrombiEntry(currentTrombiSelection);
-        } else if (filteredPlayers.length > 0) {
-            selectTrombiEntry(filteredPlayers[0].nickname || '');
         }
     }
 }
@@ -501,119 +615,141 @@ function renderTrombiDetails(player) {
     }
 
     if (player.is_admin) {
-        title.appendChild(createAdminBadge());
+        const adminBadge = createAdminBadge();
+        console.log('Ajout du badge admin dans détails pour:', player.nickname);
+        title.appendChild(adminBadge);
     }
 
     trombiDetails.appendChild(title);
 
-    // Afficher la cible et l'action pour les admins (juste après le titre)
-    if (currentPlayerIsAdmin && player.target) {
-        const targetInfoP = document.createElement('div');
-        targetInfoP.classList.add('trombi-target-box');
-        
-        // Pour les joueurs morts, utiliser "devait kill" au passé
+    // === POUR LES ADMINS UNIQUEMENT ===
+    if (currentPlayerIsAdmin && !player.is_admin) {
         const isDead = player.status && (player.status.toLowerCase() === 'dead' || player.status.toLowerCase() === 'gaveup');
-        const verbPrefix = isDead ? 'devait kill ' : 'doit kill ';
+        const isAlive = !isDead;
         
-        // Créer "doit kill " ou "devait kill "
-        targetInfoP.appendChild(document.createTextNode(verbPrefix));
-        
-        // Créer le nom de la cible cliquable
-        const targetLink = document.createElement('span');
-        targetLink.classList.add('trombi-target-link');
-        targetLink.textContent = player.target;
-        targetLink.style.cursor = 'pointer';
-        targetLink.style.textDecoration = 'underline';
-        targetLink.style.color = 'var(--primary-color)';
-        targetLink.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectTrombiEntry(player.target);
-        });
-        targetInfoP.appendChild(targetLink);
-        
-        // Ajouter l'action sur la même ligne après un retour à la ligne si elle existe
-        if (player.action) {
-            targetInfoP.appendChild(document.createElement('br'));
-            const actionSpan = document.createElement('span');
-            actionSpan.style.fontStyle = 'italic';
-            actionSpan.style.fontSize = '0.85rem';
-            actionSpan.style.color = 'var(--secondary-color)';
-            actionSpan.textContent = `"${player.action}"`;
-            targetInfoP.appendChild(actionSpan);
+        // === JOUEUR VIVANT ===
+        if (isAlive) {
+            // 1. "doit se faire kill par [hunter]" + action du hunter
+            if (player.hunter) {
+                const hunterInfoP = document.createElement('div');
+                hunterInfoP.classList.add('trombi-hunter-box');
+                
+                hunterInfoP.appendChild(document.createTextNode('doit se faire kill par '));
+                
+                const hunterLink = document.createElement('span');
+                hunterLink.classList.add('trombi-target-link');
+                hunterLink.textContent = player.hunter;
+                hunterLink.style.cursor = 'pointer';
+                hunterLink.style.textDecoration = 'underline';
+                hunterLink.style.color = 'var(--primary-color)';
+                hunterLink.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectTrombiEntry(player.hunter);
+                });
+                hunterInfoP.appendChild(hunterLink);
+                
+                if (player.hunter_action) {
+                    hunterInfoP.appendChild(document.createElement('br'));
+                    const hunterActionSpan = document.createElement('span');
+                    hunterActionSpan.style.fontStyle = 'italic';
+                    hunterActionSpan.style.fontSize = '0.85rem';
+                    hunterActionSpan.style.color = 'var(--secondary-color)';
+                    hunterActionSpan.textContent = `"${player.hunter_action}"`;
+                    hunterInfoP.appendChild(hunterActionSpan);
+                }
+                
+                trombiDetails.appendChild(hunterInfoP);
+            }
+            
+            // 2. "doit kill [cible]" + action
+            if (player.target) {
+                const targetInfoP = document.createElement('div');
+                targetInfoP.classList.add('trombi-target-box');
+                
+                targetInfoP.appendChild(document.createTextNode('doit kill '));
+                
+                const targetLink = document.createElement('span');
+                targetLink.classList.add('trombi-target-link');
+                targetLink.textContent = player.target;
+                targetLink.style.cursor = 'pointer';
+                targetLink.style.textDecoration = 'underline';
+                targetLink.style.color = 'var(--primary-color)';
+                targetLink.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectTrombiEntry(player.target);
+                });
+                targetInfoP.appendChild(targetLink);
+                
+                if (player.action) {
+                    targetInfoP.appendChild(document.createElement('br'));
+                    const actionSpan = document.createElement('span');
+                    actionSpan.style.fontStyle = 'italic';
+                    actionSpan.style.fontSize = '0.85rem';
+                    actionSpan.style.color = 'var(--secondary-color)';
+                    actionSpan.textContent = `"${player.action}"`;
+                    targetInfoP.appendChild(actionSpan);
+                }
+                
+                trombiDetails.appendChild(targetInfoP);
+            }
         }
         
-        trombiDetails.appendChild(targetInfoP);
-    }
-    
-    // Afficher "s'est fait kill par..." pour les joueurs morts
-    if (currentPlayerIsAdmin && player.killed_by && !player.is_admin) {
-        const killedByInfoP = document.createElement('div');
-        killedByInfoP.classList.add('trombi-hunter-box');
-        
-        // Créer "s'est fait kill par "
-        killedByInfoP.appendChild(document.createTextNode('s\'est fait kill par '));
-        
-        // Créer le nom du killer cliquable
-        const killerLink = document.createElement('span');
-        killerLink.classList.add('trombi-target-link');
-        killerLink.textContent = player.killed_by;
-        killerLink.style.cursor = 'pointer';
-        killerLink.style.textDecoration = 'underline';
-        killerLink.style.color = 'var(--primary-color)';
-        killerLink.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectTrombiEntry(player.killed_by);
-        });
-        killedByInfoP.appendChild(killerLink);
-        
-        // Ajouter l'action que le killer devait faire pour tuer ce joueur
-        if (player.killed_by_action) {
-            killedByInfoP.appendChild(document.createElement('br'));
-            const killerActionSpan = document.createElement('span');
-            killerActionSpan.style.fontStyle = 'italic';
-            killerActionSpan.style.fontSize = '0.85rem';
-            killerActionSpan.style.color = 'var(--secondary-color)';
-            killerActionSpan.textContent = `"${player.killed_by_action}"`;
-            killedByInfoP.appendChild(killerActionSpan);
+        // === JOUEUR MORT ===
+        if (isDead) {
+            // 1. "s'est fait kill par [killer]" + action du killer
+            if (player.killed_by) {
+                const killedByInfoP = document.createElement('div');
+                killedByInfoP.classList.add('trombi-hunter-box');
+                
+                killedByInfoP.appendChild(document.createTextNode('s\'est fait kill par '));
+                
+                const killerLink = document.createElement('span');
+                killerLink.classList.add('trombi-target-link');
+                killerLink.textContent = player.killed_by;
+                killerLink.style.cursor = 'pointer';
+                killerLink.style.textDecoration = 'underline';
+                killerLink.style.color = 'var(--primary-color)';
+                killerLink.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectTrombiEntry(player.killed_by);
+                });
+                killedByInfoP.appendChild(killerLink);
+                
+                trombiDetails.appendChild(killedByInfoP);
+            }
+            
+            // 2. "devait kill [cible]" + action
+            if (player.target) {
+                const targetInfoP = document.createElement('div');
+                targetInfoP.classList.add('trombi-target-box');
+                
+                targetInfoP.appendChild(document.createTextNode('devait kill '));
+                
+                const targetLink = document.createElement('span');
+                targetLink.classList.add('trombi-target-link');
+                targetLink.textContent = player.target;
+                targetLink.style.cursor = 'pointer';
+                targetLink.style.textDecoration = 'underline';
+                targetLink.style.color = 'var(--primary-color)';
+                targetLink.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectTrombiEntry(player.target);
+                });
+                targetInfoP.appendChild(targetLink);
+                
+                if (player.action) {
+                    targetInfoP.appendChild(document.createElement('br'));
+                    const actionSpan = document.createElement('span');
+                    actionSpan.style.fontStyle = 'italic';
+                    actionSpan.style.fontSize = '0.85rem';
+                    actionSpan.style.color = 'var(--secondary-color)';
+                    actionSpan.textContent = `"${player.action}"`;
+                    targetInfoP.appendChild(actionSpan);
+                }
+                
+                trombiDetails.appendChild(targetInfoP);
+            }
         }
-        
-        trombiDetails.appendChild(killedByInfoP);
-    }
-    
-    // Afficher qui doit tuer ce joueur pour les admins (uniquement pour les vivants)
-    const isAlive = !player.status || player.status.toLowerCase() === 'alive';
-    if (currentPlayerIsAdmin && player.hunter && !player.is_admin && isAlive) {
-        const hunterInfoP = document.createElement('div');
-        hunterInfoP.classList.add('trombi-hunter-box');
-        
-        // Créer "doit se faire kill par "
-        hunterInfoP.appendChild(document.createTextNode('doit se faire kill par '));
-        
-        // Créer le nom du chasseur cliquable
-        const hunterLink = document.createElement('span');
-        hunterLink.classList.add('trombi-target-link');
-        hunterLink.textContent = player.hunter;
-        hunterLink.style.cursor = 'pointer';
-        hunterLink.style.textDecoration = 'underline';
-        hunterLink.style.color = 'var(--primary-color)';
-        hunterLink.addEventListener('click', (e) => {
-            e.stopPropagation();
-            selectTrombiEntry(player.hunter);
-        });
-        hunterInfoP.appendChild(hunterLink);
-        
-        // Ajouter l'action du chasseur sur la même ligne après un retour à la ligne si elle existe
-        if (player.hunter_action) {
-            hunterInfoP.appendChild(document.createElement('br'));
-            const hunterActionSpan = document.createElement('span');
-            hunterActionSpan.style.fontStyle = 'italic';
-            hunterActionSpan.style.fontSize = '0.85rem';
-            hunterActionSpan.style.color = 'var(--secondary-color)';
-            hunterActionSpan.textContent = `"${player.hunter_action}"`;
-            hunterInfoP.appendChild(hunterActionSpan);
-        }
-        
-        trombiDetails.appendChild(hunterInfoP);
     }
 
     // Afficher le message info après la cible selon le type de joueur
@@ -943,9 +1079,12 @@ async function loadLeaderboard() {
             return player.status === 'alive' && !player.is_admin;
         }).length;
         
-        // Afficher "Il reste X joueurs en vie" pour tout le monde
+        // Calculer le nombre total de joueurs actifs (sans admins)
+        const totalActivePlayers = (data.leaderboard || []).filter(player => !player.is_admin).length;
+        
+        // Afficher "Il reste x/N joueurs en vie" pour tout le monde
         if (leaderboardRemaining) {
-            const remainingText = `Il reste ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie`;
+            const remainingText = `(Il reste ${aliveCount}/${totalActivePlayers} joueur${aliveCount > 1 ? 's' : ''} en vie)`;
             leaderboardRemaining.textContent = remainingText;
             leaderboardRemaining.classList.remove('hidden');
         }
@@ -959,16 +1098,34 @@ async function loadLeaderboard() {
             p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
         );
         
-        // Ajouter le joueur actuel s'il n'est pas dans le leaderboard et n'est pas admin
-        let playersToDisplay = [...playersWithKills];
-        if (currentPlayer && !currentPlayer.is_admin) {
-            const isInLeaderboard = playersWithKills.some(p => 
-                p.nickname && p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
-            );
+        let playersToDisplay = [];
+        
+        // Si l'utilisateur est admin, afficher le top 10
+        if (currentPlayerIsAdmin) {
+            playersToDisplay = playersWithKills.slice(0, 10);
             
-            if (!isInLeaderboard) {
-                // Ajouter le joueur actuel à la fin
-                playersToDisplay.push(currentPlayer);
+            // Ajouter l'admin actuel s'il a des kills et n'est pas dans le top 10
+            if (currentPlayer && currentPlayer.is_admin && (currentPlayer.kill_count || 0) > 0) {
+                const isInTop10 = playersToDisplay.some(p => 
+                    p.nickname && p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
+                );
+                
+                if (!isInTop10) {
+                    playersToDisplay.push(currentPlayer);
+                }
+            }
+        } else {
+            // Si l'utilisateur n'est pas admin, afficher uniquement son propre profil
+            if (currentPlayer && !currentPlayer.is_admin) {
+                // Calculer le classement du joueur parmi tous les joueurs avec kills
+                const playerRank = playersWithKills.findIndex(p => 
+                    p.nickname && p.nickname.toLowerCase() === currentPlayerNickname.toLowerCase()
+                ) + 1;
+                
+                // Ajouter le rang et le total au joueur
+                currentPlayer.displayRank = playerRank > 0 ? playerRank : playersWithKills.length + 1;
+                currentPlayer.totalPlayers = totalActivePlayers;
+                playersToDisplay = [currentPlayer];
             }
         }
         
@@ -1005,7 +1162,9 @@ function renderLeaderboard(players) {
     };
     
     players.forEach((player, index) => {
-        const rank = index + 1;
+        // Utiliser le rang précalculé si disponible (pour les non-admins), sinon utiliser l'index
+        const rank = player.displayRank || (index + 1);
+        const totalPlayers = player.totalPlayers;
         const killCount = player.kill_count || 0;
         const medalTier = getMedalTier(killCount);
         
@@ -1020,19 +1179,26 @@ function renderLeaderboard(players) {
             entry.classList.add('leaderboard-entry-current');
         }
         
-        // Classe spéciale pour les médailles
+        // Classe spéciale pour les médailles (seulement pour les 3 premiers rangs réels)
         let rankClass = '';
-        let rankDisplay = rank;
+        let rankDisplay;
         
-        if (medalTier === 1) {
-            rankClass = ' rank-1';
-            rankDisplay = '🥇';
-        } else if (medalTier === 2) {
-            rankClass = ' rank-2';
-            rankDisplay = '🥈';
-        } else if (medalTier === 3) {
-            rankClass = ' rank-3';
-            rankDisplay = '🥉';
+        // Si totalPlayers est défini, afficher juste "x" (pour les non-admins)
+        if (totalPlayers) {
+            rankDisplay = rank;
+        } else {
+            // Sinon afficher le rang normal ou les médailles (pour les admins)
+            rankDisplay = rank;
+            if (rank === 1 && medalTier === 1) {
+                rankClass = ' rank-1';
+                rankDisplay = '🥇';
+            } else if (rank === 2 && medalTier === 2) {
+                rankClass = ' rank-2';
+                rankDisplay = '🥈';
+            } else if (rank === 3 && medalTier === 3) {
+                rankClass = ' rank-3';
+                rankDisplay = '🥉';
+            }
         }
         
         const photoUrl = getDriveImageUrl(player.person_photo, 500);
@@ -1090,6 +1256,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const category = btn.dataset.category;
             if (category && category !== currentTrombiCategory) {
                 currentTrombiCategory = category;
+                
+                // Réinitialiser la sélection et le filtre d'année
+                currentTrombiSelection = null;
+                currentYearFilter = 'all';
+                
+                // Afficher/masquer les filtres d'année selon la catégorie
+                const yearFilters = document.getElementById('trombi-year-filters');
+                if (yearFilters) {
+                    if (category === 'players') {
+                        yearFilters.classList.remove('hidden');
+                        // Réinitialiser le bouton actif
+                        const yearButtons = yearFilters.querySelectorAll('.trombi-year-btn');
+                        yearButtons.forEach(yb => yb.classList.remove('active'));
+                        const allYearBtn = yearFilters.querySelector('[data-year="all"]');
+                        if (allYearBtn) allYearBtn.classList.add('active');
+                    } else {
+                        yearFilters.classList.add('hidden');
+                    }
+                }
+                
+                // Vider les détails du trombinoscope et afficher le message placeholder
+                if (trombiDetails) {
+                    trombiDetails.innerHTML = '<p class="trombi-placeholder">Sélectionne un joueur pour découvrir son profil.</p>';
+                }
                 
                 // Mettre à jour l'état actif des boutons
                 categoryButtons.forEach(b => b.classList.remove('active'));
@@ -1268,11 +1458,18 @@ function showPlayerInterface(data) {
     viewerStatus = (data.player.status || 'alive').toLowerCase();
     currentPlayerIsAdmin = Boolean(data.player.is_admin);
     
+    console.log('=== showPlayerInterface ===');
+    console.log('Player nickname:', normalizedPlayerNickname);
+    console.log('Player is_admin from data:', data.player.is_admin);
+    console.log('currentPlayerIsAdmin set to:', currentPlayerIsAdmin);
+    
     // Définir la catégorie par défaut selon si l'utilisateur est admin ou non
     if (currentPlayerIsAdmin) {
-        currentTrombiCategory = 'all';
+        currentTrombiCategory = 'players';
+        console.log('Admin détecté - catégorie par défaut: players');
     } else {
         currentTrombiCategory = 'players';
+        console.log('Non-admin détecté - catégorie par défaut: players');
     }
     
     loginContainer.classList.add('hidden');

@@ -44,13 +44,11 @@
         <div id="player-container" class="hidden">
             <div class="header-profile">
                 <h2 id="player-nickname-header"></h2>
-                <p id="player-remaining-targets" class="player-remaining-targets hidden"></p>
                 <div class="profile-photos">
                     <div id="player-person-photo-container" class="photo-container photo-small">
                         <img id="player-person-photo" src="" alt="Photo du joueur" class="player-photo">
                         <img src="./client/img/mug_shot.png" alt="" class="player-mugshot-overlay" aria-hidden="true">
                     </div>
-                    <p id="player-kill-count" class="player-kill-count hidden"></p>
                 </div>
             </div>
 
@@ -66,7 +64,7 @@
             <div class="main-content">
                 <!-- Message de fin de jeu -->
                 <div class="game-over-message hidden" id="game-over-message">
-                    <p>🎉 Le killer est terminé bouuuh... mais la strrr continuee <span class="small-text">(manque 1 pour CD)</span> 🎉</p>
+                    <p>🎉 Le killer est terminé bouuuh... mais la strrr continuee <span class="small-text">(manque toujours 1 pour CD)</span> 🎉</p>
                 </div>
 
                 <!-- Podium des survivants -->
@@ -109,18 +107,25 @@
                     </div>
                 </div>
 
+                <!-- Podium des meilleurs killers -->
+                <div class="podium-section hidden" id="kills-podium-section">
+                    <h2>🔪 Podium des Killers 🔪</h2>
+                    <div class="podium-container" id="kills-podium-container">
+                        <!-- Le contenu sera généré dynamiquement par JavaScript -->
+                    </div>
+                </div>
+
                 <!-- Message info pour les joueurs morts -->
                 <div class="dead-player-info hidden" id="dead-player-info">
                     <div class="dead-player-info-content">
                         <p class="dead-player-message">💀 Tu es éliminé... mais reste branché !</p>
-                        <p class="alive-count" id="alive-count-message">Il reste plus que <strong>X joueurs vivants</strong></p>
                         <p class="dead-player-hint">Le podium s'affichera dès qu'un vainqueur sera désigné 🏆</p>
                     </div>
                 </div>
 
                 <!-- Section de la cible -->
                 <div class="target-info" id="target-info-section">
-                    <h2 id="target-section-title">TA CIBLE</h2>
+                    <h2>TA CIBLE</h2>
                     <div id="target-card" class="target-card">
                         <div class="mission-statement">
                             <p>Tu dois kill <span id="target-nickname" class="target-name"></span> : <span id="target-action" class="action"></span></p>
@@ -138,12 +143,12 @@
 
                 <!-- Leaderboard des tueurs -->
                 <div class="leaderboard-section" id="leaderboard-section">
-                    <h2>🔪 Leaderboard 🔪</h2>
-                    <p id="leaderboard-remaining" class="leaderboard-remaining hidden"></p>
+                    <h2>🔪 Leaderboard killers 🔪</h2>
+                    <p class="alive-count" id="leaderboard-remaining">Il reste plus que <strong>X joueurs vivants</strong></p>
                     <div class="leaderboard-container">
                         <div id="leaderboard-list" class="leaderboard-list"></div>
                         <div id="leaderboard-empty" class="leaderboard-empty hidden">
-                            <p>Soit le premier à tuer un(e) fyot(te) ! (dans le jeu hein pas en vrai...)</p>
+                            <p>Soit le premier à tuer un fyot ! (dans le jeu hein pas en vrai...)</p>
                         </div>
                     </div>
                 </div>
@@ -153,14 +158,23 @@
                     <h2>Trombinoscope</h2>
                     <div class="trombi-categories">
                         <!-- Catégories pour les admins -->
-                        <button type="button" class="trombi-category-btn admin-only active hidden" data-category="all">Tous</button>
+                        <button type="button" class="trombi-category-btn admin-only hidden active" data-category="players">Joueurs</button>
+                        <button type="button" class="trombi-category-btn admin-only hidden" data-category="admins">Admins</button>
                         <button type="button" class="trombi-category-btn admin-only hidden" data-category="alive">Vivants</button>
                         <button type="button" class="trombi-category-btn admin-only hidden" data-category="dead">Morts</button>
                         <button type="button" class="trombi-category-btn admin-only hidden" data-category="gaveup">Abandons</button>
+                        
                         <!-- Catégories pour les non-admins -->
-                        <button type="button" class="trombi-category-btn non-admin-only active hidden" data-category="players">Joueurs</button>
-                        <button type="button" class="trombi-category-btn non-admin-only hidden" data-category="admins">Admins</button>
+                        <button type="button" class="trombi-category-btn non-admin-only hidden active" data-category="players">Joueurs</button>
+                        <button type="button" class="trombi-category-btn non-admin-only hidden" data-category="admins" title="(À contacter en cas de non gérance)">Admins</button>
                     </div>
+                    
+                    <!-- Sous-catégories par année (visible uniquement quand "Joueurs" est sélectionné) -->
+                    <div class="trombi-year-filters hidden" id="trombi-year-filters">
+                        <!-- Les boutons d'année seront générés dynamiquement par JavaScript -->
+                    </div>
+                    
+                    <p class="trombi-category-hint" id="admin-category-hint">(À contacter en cas de non gérance)</p>
                     <div class="trombi-wrapper">
                         <div id="trombi-list" class="trombi-list"></div>
                         <div id="trombi-details" class="trombi-details">
@@ -170,6 +184,36 @@
                     <p id="trombi-empty" class="trombi-empty hidden">Pas encore de joueurs à afficher.</p>
                     <p id="trombi-error" class="trombi-error hidden">Impossible de charger le trombinoscope pour le moment.</p>
                 </div>
+
+                    <div class="admin-overview hidden" id="admin-overview">
+                        <div class="admin-overview-header">
+                            <h2>Vue complète des joueurs (admin)</h2>
+                            <button id="admin-refresh" class="btn btn-secondary btn-small">Actualiser</button>
+                        </div>
+                        <div class="admin-categories">
+                            <button type="button" class="admin-category-btn active" data-admin-category="all">Tous</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="alive">Vivants</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="dead">Morts</button>
+                            <button type="button" class="admin-category-btn" data-admin-category="gaveup">Abandonnés</button>
+                        </div>
+                        <div class="admin-table-container">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                    <th class="sortable" data-sort-key="nickname">Joueur</th>
+                                    <th>Statut</th>
+                                    <th class="sortable" data-sort-key="target">Cible actuelle</th>
+                                    <th>Action actuelle</th>
+                                    <th class="sortable" data-sort-key="initial_target">Cible initiale</th>
+                                    <th>Action initiale</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-overview-body"></tbody>
+                            </table>
+                        </div>
+                        <div id="admin-overview-empty" class="admin-overview-empty hidden">Aucune donnée disponible.</div>
+                        <div id="admin-overview-error" class="admin-overview-error hidden">Lecture des données impossible pour le moment.</div>
+                    </div>
             </div>
         </div>
         

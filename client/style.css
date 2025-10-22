@@ -256,26 +256,6 @@ input:focus {
     text-align: center;
 }
 
-.player-remaining-targets {
-    font-size: 1rem;
-    margin: 5px 0 0 0;
-    color: var(--secondary-color);
-    font-weight: 500;
-    text-align: center;
-}
-
-.player-kill-count {
-    font-size: 1.1rem;
-    margin: 8px 0 0 0;
-    color: var(--primary-color);
-    font-weight: 600;
-    text-align: center;
-    padding: 6px 12px;
-    background-color: rgba(106, 27, 154, 0.1);
-    border-radius: 8px;
-    display: inline-block;
-}
-
 .photo-small {
     width: 80px;
     height: 80px;
@@ -336,7 +316,7 @@ input:focus {
     padding: 30px;
     border-radius: 10px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-    margin-bottom: 50px;
+    margin-bottom: 30px;
 }
 
 .trombi-categories {
@@ -380,8 +360,37 @@ input:focus {
     display: none;
 }
 
-/* Les catégories admin/non-admin sont gérées par JavaScript */
-/* Ne pas forcer display: none ici pour permettre au JS de les afficher */
+/* Filtres par année */
+.trombi-year-filters {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+
+.trombi-year-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--primary-color);
+    background-color: transparent;
+    color: var(--primary-color);
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.trombi-year-btn:hover {
+    background-color: rgba(106, 27, 154, 0.1);
+    transform: translateY(-1px);
+}
+
+.trombi-year-btn.active {
+    background-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 2px 6px rgba(106, 27, 154, 0.3);
+}
 
 .trombi-category-hint {
     display: none;
@@ -394,51 +403,6 @@ input:focus {
 
 .trombi-category-hint.visible {
     display: block;
-}
-
-.trombi-admin-info {
-    font-size: 0.85rem;
-    color: var(--secondary-color);
-    font-style: italic;
-    margin-top: 8px;
-    text-align: center;
-    opacity: 0.9;
-}
-
-.trombi-target-box {
-    font-size: 0.9rem;
-    color: var(--text-color);
-    margin-top: 10px;
-    font-weight: 600;
-    text-align: center;
-    background-color: rgba(156, 39, 176, 0.1);
-    border: 2px solid var(--primary-color);
-    border-radius: 6px;
-    padding: 8px 12px;
-}
-
-.trombi-action-box {
-    font-size: 0.85rem;
-    color: var(--text-color);
-    font-style: italic;
-    margin-top: 6px;
-    text-align: center;
-    background-color: rgba(103, 58, 183, 0.08);
-    border: 1px solid var(--secondary-color);
-    border-radius: 6px;
-    padding: 7px 12px;
-}
-
-.trombi-hunter-box {
-    font-size: 0.9rem;
-    color: var(--text-color);
-    margin-top: 10px;
-    font-weight: 600;
-    text-align: center;
-    background-color: rgba(244, 67, 54, 0.1);
-    border: 2px solid #e91e63;
-    border-radius: 6px;
-    padding: 8px 12px;
 }
 
 .trombi-phone {
@@ -490,22 +454,20 @@ input:focus {
 .leaderboard-section h2 {
     color: var(--primary-color);
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 5px;
     font-size: 1.8rem;
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
-.leaderboard-remaining {
+.leaderboard-section .alive-count {
     text-align: center;
-    color: var(--primary-color);
-    font-size: 1.1rem;
-    font-weight: 500;
+    margin-top: 0;
     margin-bottom: 20px;
-    padding: 8px 15px;
-    background: linear-gradient(135deg, rgba(106, 27, 154, 0.1), rgba(156, 39, 176, 0.05));
-    border-radius: 8px;
-    max-width: 300px;
-    margin-left: auto;
-    margin-right: auto;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--primary-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
 }
 
 .leaderboard-list {
@@ -531,17 +493,6 @@ input:focus {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(106, 27, 154, 0.15);
     border-color: var(--primary-color);
-}
-
-.leaderboard-entry-current {
-    background: linear-gradient(135deg, rgba(106, 27, 154, 0.15), rgba(156, 39, 176, 0.1));
-    border: 2px solid var(--primary-color);
-    box-shadow: 0 2px 8px rgba(106, 27, 154, 0.2);
-}
-
-.leaderboard-entry-current:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(106, 27, 154, 0.3);
 }
 
 .leaderboard-rank {
@@ -708,18 +659,6 @@ input:focus {
     width: 100%;
 }
 
-.trombi-target-info-meta {
-    font-size: 0.9rem;
-    color: var(--secondary-color);
-    font-weight: 500;
-    text-align: center;
-    padding: 8px 12px;
-    background-color: rgba(128, 0, 128, 0.08);
-    border-radius: 6px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
 .trombi-feet-button {
     font-size: 0.9rem;
     padding: 8px 14px;
@@ -795,45 +734,6 @@ input:focus {
 .trombi-status-info {
     font-size: 0.9rem;
     color: rgba(0, 0, 0, 0.6);
-}
-
-.trombi-target-info {
-    font-size: 0.95rem;
-    color: var(--secondary-color);
-    font-weight: 500;
-    margin-top: 0.75rem;
-    padding: 0.5rem;
-    background-color: rgba(128, 0, 128, 0.05);
-    border-left: 3px solid var(--secondary-color);
-    border-radius: 4px;
-}
-
-.trombi-admin-stats {
-    margin-top: 1rem;
-    padding: 1rem;
-    background-color: rgba(128, 0, 128, 0.08);
-    border-radius: 8px;
-    border: 2px solid var(--secondary-color);
-}
-
-.trombi-stat-item {
-    font-size: 0.9rem;
-    margin: 0.5rem 0;
-    color: rgba(0, 0, 0, 0.8);
-}
-
-.trombi-stat-item strong {
-    color: var(--secondary-color);
-    font-weight: 600;
-}
-
-.trombi-password code {
-    background-color: rgba(0, 0, 0, 0.1);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.95em;
-    color: #000;
 }
 
 .photo-error {
@@ -1083,7 +983,6 @@ input:focus {
 
 .logout-button-container {
     margin-top: 15px;
-    margin-bottom: 30px;
 }
 
 .logout-button-container button {
@@ -1180,16 +1079,6 @@ input:focus {
     pointer-events: none;
 }
 
-/* Bouton de déconnexion rouge pour joueurs morts */
-.player-dead #logout-btn {
-    background-color: #D32F2F;
-    color: #FFFFFF;
-}
-
-.player-dead #logout-btn:hover {
-    background-color: #B71C1C;
-}
-
 /* Classe pour indiquer visuellement un joueur qui a abandonné */
 .player-gave-up {
     position: relative;
@@ -1206,33 +1095,6 @@ input:focus {
     z-index: -1;
     border-radius: 10px;
     pointer-events: none;
-}
-
-/* Bouton de déconnexion rouge pour joueurs qui ont abandonné */
-.player-gave-up #logout-btn {
-    background-color: #D32F2F;
-    color: #FFFFFF;
-}
-
-.player-gave-up #logout-btn:hover {
-    background-color: #B71C1C;
-}
-
-/* Bouton de déconnexion rouge pour les admins */
-.player-admin #logout-btn {
-    background-color: #D32F2F;
-    color: #FFFFFF;
-}
-
-.player-admin #logout-btn:hover {
-    background-color: #B71C1C;
-}
-
-/* Cacher les boutons d'action pour les admins */
-.player-admin .action-buttons,
-.player-admin #killed-btn,
-.player-admin #give-up-btn {
-    display: none !important;
 }
 
 /* Notification après un kill */
