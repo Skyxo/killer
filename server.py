@@ -900,8 +900,8 @@ def get_podium():
     except ConnectionError as e:
         return jsonify({"success": False, "message": str(e)}), 503
 
-    # Filtrer seulement les joueurs actifs (elimination_order >= 0, excluant ceux avec -1)
-    active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+    # Filtrer seulement les joueurs actifs (elimination_order >= 0, excluant ceux avec -1 ET les admins)
+    active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0 and not p.get("is_admin")]
     
     # Filtrer seulement les joueurs vivants parmi les actifs
     alive_players = [p for p in active_players if (p.get("status") or "alive").lower() == "alive"]
@@ -1158,8 +1158,8 @@ def get_leaderboard():
     try:
         players = get_all_players()
         
-        # Filtrer seulement les joueurs actifs (elimination_order >= 0)
-        active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0]
+        # Filtrer seulement les joueurs actifs (elimination_order >= 0 ET non-admins)
+        active_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0 and not p.get("is_admin")]
         
         leaderboard = []
         for player in active_players:
@@ -1218,7 +1218,14 @@ def get_trombi():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
 
-    entries = [_trombi_entry(player, viewer.get("nickname"), include_status, players) for player in players]
+    # Filtrer les joueurs qui participent (elimination_order != -1)
+    # Les admins sont inclus même avec elimination_order = -1
+    participating_players = [
+        p for p in players 
+        if bool(p.get("is_admin")) or _parse_int(p.get("elimination_order", "0"), 0) != -1
+    ]
+
+    entries = [_trombi_entry(player, viewer.get("nickname"), include_status, players) for player in participating_players]
     entries.sort(key=lambda entry: (
         0 if entry.get("is_admin") else 1,
         (entry.get("nickname") or "").lower(),
