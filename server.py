@@ -1159,9 +1159,25 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
     }
 
 
-def _viewer_can_see_status(viewer_status: Optional[str], is_admin: bool) -> bool:
-    # Seuls les admins peuvent voir les statuts vivant/mort
-    return bool(is_admin)
+def _viewer_can_see_status(viewer_status: Optional[str], is_admin: bool, all_players: list = None) -> bool:
+    """
+    Détermine si le viewer peut voir les statuts et infos détaillées.
+    - Les admins peuvent toujours voir
+    - Les non-admins peuvent voir si la partie est terminée (1 ou moins de joueurs vivants)
+    """
+    if is_admin:
+        return True
+    
+    # Vérifier si la partie est terminée (1 ou moins de joueurs non-admin vivants)
+    if all_players:
+        alive_count = sum(
+            1 for p in all_players 
+            if not p.get("is_admin") and _normalize_status(p.get("status")) == "alive"
+        )
+        if alive_count <= 1:
+            return True
+    
+    return False
 
 
 @app.route("/api/leaderboard", methods=["GET"])
@@ -1217,8 +1233,6 @@ def get_trombi():
         session.clear()
         return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
 
-    include_status = _viewer_can_see_status(viewer.get("status"), viewer.get("is_admin"))
-
     try:
         players = get_all_players()
     except ConnectionError as e:
@@ -1229,6 +1243,8 @@ def get_trombi():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
+
+    include_status = _viewer_can_see_status(viewer.get("status"), viewer.get("is_admin"), players)
 
     # Filtrer les joueurs qui participent (elimination_order != -1)
     # Les admins sont inclus même avec elimination_order = -1

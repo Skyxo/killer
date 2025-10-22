@@ -867,7 +867,7 @@ input:focus {
     display: block;
     font-style: italic;
     font-size: 0.9rem;
-    color: var(--secondary-color);
+    color: #888888; /* Gris moyen pour bon contraste sur fond clair et sombre */
     margin-top: 0.5rem;
     padding-left: 2.25rem;
     line-height: 1.4;

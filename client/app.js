@@ -672,7 +672,9 @@ function renderTrombiDetails(player) {
                         }
 
                         if (actionToDisplay) {
-                            lastKillDiv.appendChild(document.createTextNode(' et il devait '));
+                            lastKillDiv.appendChild(document.createTextNode(' et '));
+                            lastKillDiv.appendChild(document.createTextNode(accord(player.gender, 'il', 'elle')));
+                            lastKillDiv.appendChild(document.createTextNode(' devait '));
                             const actionSpan = document.createElement('span');
                             actionSpan.classList.add('action-text');
                             actionSpan.textContent = `"${actionToDisplay}"`;
@@ -711,7 +713,7 @@ function renderTrombiDetails(player) {
                         const hunterActionSpan = document.createElement('span');
                         hunterActionSpan.style.fontStyle = 'italic';
                         hunterActionSpan.style.fontSize = '0.85rem';
-                        hunterActionSpan.style.color = 'var(--secondary-color)';
+                        hunterActionSpan.style.color = '#888888';
                         hunterActionSpan.textContent = `"${player.hunter_action}"`;
                         hunterInfoP.appendChild(hunterActionSpan);
                     }
@@ -743,7 +745,7 @@ function renderTrombiDetails(player) {
                         const actionSpan = document.createElement('span');
                         actionSpan.style.fontStyle = 'italic';
                         actionSpan.style.fontSize = '0.85rem';
-                        actionSpan.style.color = 'var(--secondary-color)';
+                        actionSpan.style.color = '#888888';
                         actionSpan.textContent = `"${player.action}"`;
                         targetInfoP.appendChild(actionSpan);
                     }
@@ -1038,6 +1040,7 @@ function loadPodium() {
             }
 
             if (data.game_over && data.podium && data.podium.length > 0) {
+                gameIsOver = true;
                 renderPodium(data.podium);
                 podiumSection.classList.remove('hidden');
                 // Afficher le message de fin de jeu
@@ -1054,7 +1057,10 @@ function loadPodium() {
                 if (actionButtons) {
                     actionButtons.classList.add('hidden');
                 }
+                // Forcer le rechargement du trombinoscope pour afficher les infos admin
+                loadTrombi();
             } else {
+                gameIsOver = false;
                 podiumSection.classList.add('hidden');
                 // Cacher le message de fin de jeu
                 if (gameOverMessage) {
