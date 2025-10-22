@@ -991,6 +991,22 @@ input:focus {
     font-size: 1.1rem;
 }
 
+/* Bouton de déconnexion en rouge quand les boutons d'action sont cachés */
+.player-dead .logout-button-container button,
+.player-gave-up .logout-button-container button,
+.player-admin .logout-button-container button {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.player-dead .logout-button-container button:hover,
+.player-gave-up .logout-button-container button:hover,
+.player-admin .logout-button-container button:hover {
+    background-color: #c82333;
+    border-color: #bd2130;
+}
+
 /* Bouton pour afficher/masquer les pieds de la cible */
 .feet-toggle-btn {
     display: block;
