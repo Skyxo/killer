@@ -618,18 +618,10 @@ function renderTrombiDetails(player) {
             if (gameIsOver) {
                 const winnerInfoP = document.createElement('div');
                 winnerInfoP.classList.add('trombi-winner-box');
-                winnerInfoP.style.padding = '1rem';
-                winnerInfoP.style.marginTop = '1rem';
-                winnerInfoP.style.backgroundColor = 'var(--accent-color)';
-                winnerInfoP.style.borderRadius = '8px';
-                winnerInfoP.style.textAlign = 'center';
-                winnerInfoP.style.fontWeight = 'bold';
-                winnerInfoP.style.color = 'var(--text-color)';
                 
                 const winnerText = document.createElement('div');
                 winnerText.textContent = '🏆 GAGNANT 🏆';
-                winnerText.style.fontSize = '1.2rem';
-                winnerText.style.marginBottom = '0.5rem';
+                winnerText.classList.add('winner-title');
                 winnerInfoP.appendChild(winnerText);
                 
                 // Chercher le dernier joueur tué par le gagnant
@@ -649,30 +641,37 @@ function renderTrombiDetails(player) {
                     const lastKilled = playersKilledByWinner[0];
                     
                     const lastKillDiv = document.createElement('div');
-                    lastKillDiv.style.fontSize = '0.9rem';
-                    lastKillDiv.style.fontWeight = 'normal';
-                    lastKillDiv.style.marginTop = '0.5rem';
+                    lastKillDiv.classList.add('winner-last-kill');
                     
                     lastKillDiv.appendChild(document.createTextNode('Son dernier kill était '));
                     
                     const killedLink = document.createElement('span');
                     killedLink.classList.add('trombi-target-link');
                     killedLink.textContent = lastKilled.nickname;
-                    killedLink.style.cursor = 'pointer';
-                    killedLink.style.textDecoration = 'underline';
-                    killedLink.style.color = 'var(--primary-color)';
                     killedLink.addEventListener('click', (e) => {
                         e.stopPropagation();
                         selectTrombiEntry(lastKilled.nickname);
                     });
                     lastKillDiv.appendChild(killedLink);
                     
-                    // Afficher l'action que le gagnant devait faire pour tuer cette personne
-                    if (lastKilled.action) {
+                    // Chercher l'action que le gagnant devait faire
+                    // On cherche dans l'historique ou on utilise l'action actuelle si disponible
+                    let actionToDisplay = null;
+                    
+                    // Essayer de trouver l'action dans les données du gagnant ou de la victime
+                    if (player.action && player.target && player.target.toLowerCase() === lastKilled.nickname.toLowerCase()) {
+                        // Si la cible actuelle du gagnant est la dernière victime
+                        actionToDisplay = player.action;
+                    } else if (lastKilled.hunter_action) {
+                        // Sinon utiliser hunter_action de la victime (l'action que son hunter devait faire)
+                        actionToDisplay = lastKilled.hunter_action;
+                    }
+                    
+                    if (actionToDisplay) {
                         lastKillDiv.appendChild(document.createTextNode(' et il devait '));
                         const actionSpan = document.createElement('span');
-                        actionSpan.style.fontStyle = 'italic';
-                        actionSpan.textContent = `"${lastKilled.action}"`;
+                        actionSpan.classList.add('action-text');
+                        actionSpan.textContent = `"${actionToDisplay}"`;
                         lastKillDiv.appendChild(actionSpan);
                     }
                     
@@ -750,24 +749,28 @@ function renderTrombiDetails(player) {
         
         // === JOUEUR MORT ===
         if (isDead) {
-            // 1. "s'est fait kill par [killer]" + action du killer
+            // 1. "s'est fait kill par [killer]"
             if (player.killed_by) {
                 const killedByInfoP = document.createElement('div');
-                killedByInfoP.classList.add('trombi-hunter-box');
+                killedByInfoP.classList.add('trombi-hunter-box', 'kill-info-box');
                 
-                killedByInfoP.appendChild(document.createTextNode('s\'est fait kill par '));
+                const killIcon = document.createElement('span');
+                killIcon.classList.add('kill-icon');
+                killIcon.textContent = '💀';
+                killedByInfoP.appendChild(killIcon);
+                
+                const killText = document.createElement('span');
+                killText.appendChild(document.createTextNode('S\'est fait kill par '));
                 
                 const killerLink = document.createElement('span');
                 killerLink.classList.add('trombi-target-link');
                 killerLink.textContent = player.killed_by;
-                killerLink.style.cursor = 'pointer';
-                killerLink.style.textDecoration = 'underline';
-                killerLink.style.color = 'var(--primary-color)';
                 killerLink.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectTrombiEntry(player.killed_by);
                 });
-                killedByInfoP.appendChild(killerLink);
+                killText.appendChild(killerLink);
+                killedByInfoP.appendChild(killText);
                 
                 trombiDetails.appendChild(killedByInfoP);
             }
@@ -775,30 +778,31 @@ function renderTrombiDetails(player) {
             // 2. "devait kill [cible]" + action
             if (player.target) {
                 const targetInfoP = document.createElement('div');
-                targetInfoP.classList.add('trombi-target-box');
+                targetInfoP.classList.add('trombi-target-box', 'kill-info-box');
                 
-                targetInfoP.appendChild(document.createTextNode('devait kill '));
+                const targetIcon = document.createElement('span');
+                targetIcon.classList.add('kill-icon');
+                targetIcon.textContent = '🎯';
+                targetInfoP.appendChild(targetIcon);
+                
+                const targetText = document.createElement('span');
+                targetText.appendChild(document.createTextNode('Devait kill '));
                 
                 const targetLink = document.createElement('span');
                 targetLink.classList.add('trombi-target-link');
                 targetLink.textContent = player.target;
-                targetLink.style.cursor = 'pointer';
-                targetLink.style.textDecoration = 'underline';
-                targetLink.style.color = 'var(--primary-color)';
                 targetLink.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectTrombiEntry(player.target);
                 });
-                targetInfoP.appendChild(targetLink);
+                targetText.appendChild(targetLink);
+                targetInfoP.appendChild(targetText);
                 
                 if (player.action) {
-                    targetInfoP.appendChild(document.createElement('br'));
-                    const actionSpan = document.createElement('span');
-                    actionSpan.style.fontStyle = 'italic';
-                    actionSpan.style.fontSize = '0.85rem';
-                    actionSpan.style.color = 'var(--secondary-color)';
-                    actionSpan.textContent = `"${player.action}"`;
-                    targetInfoP.appendChild(actionSpan);
+                    const actionDiv = document.createElement('div');
+                    actionDiv.classList.add('action-text');
+                    actionDiv.textContent = `"${player.action}"`;
+                    targetInfoP.appendChild(actionDiv);
                 }
                 
                 trombiDetails.appendChild(targetInfoP);
@@ -1141,7 +1145,7 @@ async function loadLeaderboard() {
         
         // Afficher "Il ne reste plus que x/N joueurs en vie" pour tout le monde
         if (leaderboardRemaining) {
-            const remainingText = `(Il ne reste plus que ${aliveCount}/${totalActivePlayers} joueur${aliveCount > 1 ? 's' : ''} en vie)`;
+            const remainingText = `(Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie sur ${totalActivePlayers})`;
             leaderboardRemaining.textContent = remainingText;
             leaderboardRemaining.classList.remove('hidden');
         }
@@ -1842,7 +1846,7 @@ function handleGiveUp(e) {
     e.preventDefault();
     
     // Confirmation avant de procéder
-    if (!confirm(`Êtes-vous ${accord(currentPlayerGender, 'sûr', 'sûre')} de vouloir abandonner le jeu ? Cette action ne peut pas être annulée.`)) {
+    if (!confirm(`T'es ${accord(currentPlayerGender, 'sûr', 'sûre')} de vouloir quitter la str ? T'es ${accord(currentPlayerGender, 'le fyot', 'la fyotte')} que tu penses être si tu fais ça... à bon entendrrr`)) {
         return;
     }
     
