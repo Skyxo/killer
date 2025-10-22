@@ -453,17 +453,32 @@ function renderTrombi() {
         // Affichage du statut pour les admins (à côté de l'année)
         // Les admins (joueurs avec is_admin=true) n'ont PAS de badge de statut car ils ne participent pas au jeu
         if ((currentPlayerIsAdmin || gameIsOver) && !player.is_admin) {
-            const statusChip = document.createElement('span');
+            const normalizedStatus = typeof player.status === 'string' ? player.status.toLowerCase() : 'alive';
             
-            // Afficher le statut uniquement pour les non-admins
-            if (typeof player.status === 'string' && player.status) {
-                const normalizedStatus = player.status.toLowerCase();
-                statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
-                statusChip.textContent = getStatusLabel(normalizedStatus);
-            }
-            
-            if (statusChip.textContent) {
-                labelWrapper.appendChild(statusChip);
+            // Pour les admins : si le joueur est vivant, afficher sa cible au lieu du badge "Vivant"
+            if (currentPlayerIsAdmin && normalizedStatus === 'alive' && player.target) {
+                const targetChip = document.createElement('span');
+                targetChip.classList.add('status-pill', 'status-target');
+                targetChip.textContent = `→ ${player.target}`;
+                targetChip.style.cursor = 'pointer';
+                targetChip.title = `Cible: ${player.target}`;
+                targetChip.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectTrombiEntry(player.target);
+                });
+                labelWrapper.appendChild(targetChip);
+            } else {
+                // Pour les autres cas (mort, abandonné) ou si partie terminée : afficher le statut normal
+                const statusChip = document.createElement('span');
+                
+                if (typeof player.status === 'string' && player.status) {
+                    statusChip.classList.add('status-pill', `status-${normalizedStatus}`);
+                    statusChip.textContent = getStatusLabel(normalizedStatus);
+                }
+                
+                if (statusChip.textContent) {
+                    labelWrapper.appendChild(statusChip);
+                }
             }
         }
 
@@ -667,12 +682,12 @@ function renderTrombiDetails(player) {
                 trombiDetails.appendChild(winnerInfoP);
             } else {
                 // Partie en cours : afficher les infos normales
-                // 1. "doit se faire kill par [hunter]" + action du hunter
+                // 1. "Chassé par [hunter]" + action du hunter
                 if (player.hunter) {
                     const hunterInfoP = document.createElement('div');
                     hunterInfoP.classList.add('trombi-hunter-box');
                     
-                    hunterInfoP.appendChild(document.createTextNode('doit se faire kill par '));
+                    hunterInfoP.appendChild(document.createTextNode('Chassé par '));
                     
                     const hunterLink = document.createElement('span');
                     hunterLink.classList.add('trombi-target-link');
@@ -699,12 +714,12 @@ function renderTrombiDetails(player) {
                     trombiDetails.appendChild(hunterInfoP);
                 }
                 
-                // 2. "doit kill [cible]" + action
+                // 2. "Sa cible est [cible]" + action
                 if (player.target) {
                     const targetInfoP = document.createElement('div');
                     targetInfoP.classList.add('trombi-target-box');
                     
-                    targetInfoP.appendChild(document.createTextNode('doit kill '));
+                    targetInfoP.appendChild(document.createTextNode('Sa cible est '));
                     
                     const targetLink = document.createElement('span');
                     targetLink.classList.add('trombi-target-link');

@@ -168,6 +168,8 @@ Lorsque vous êtes connecté en tant qu'admin (colonne `État` renseignée avec 
 Pour garder le serveur actif en arrière-plan sur un serveur Linux, vous pouvez utiliser le service systemd fourni (`killer.service`). Les commandes suivantes supposent que le projet est déployé dans `/var/www/killer` et qu'un environnement virtuel `.venv` y est présent.
 
 ```bash
+git log --oneline --decorate --left-right --cherry origin/backup-main...HEAD
+
 sudo cp /var/www/killer/killer.service /etc/systemd/system/killer.service
 sudo systemctl daemon-reload
 sudo systemctl enable killer.service

@@ -772,6 +772,16 @@ input:focus {
     background-color: var(--primary-color);
 }
 
+.status-target {
+    background-color: var(--accent-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.status-target:hover {
+    background-color: #9b59b6;
+}
+
 .leaderboard-table td {
     word-break: break-word;
 }
