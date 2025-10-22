@@ -1150,10 +1150,15 @@ async function loadLeaderboard() {
         // Mettre à jour l'état global de fin de partie
         gameIsOver = aliveCount <= 1;
         
-        // Afficher "Il ne reste plus que x/N joueurs en vie" pour tout le monde
+        // Afficher un message adapté : si la partie est terminée, remplacer
+        // l'ancien texte par le message de fin souhaité.
         if (leaderboardRemaining) {
-            const remainingText = `(Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie sur ${totalActivePlayers})`;
-            leaderboardRemaining.textContent = remainingText;
+            if (aliveCount <= 1) {
+                leaderboardRemaining.textContent = "Le killer est terminée ! merci d'avoir joué la team";
+            } else {
+                const remainingText = `(Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie sur ${totalActivePlayers})`;
+                leaderboardRemaining.textContent = remainingText;
+            }
             leaderboardRemaining.classList.remove('hidden');
         }
         
