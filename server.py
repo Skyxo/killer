@@ -815,36 +815,48 @@ def give_up():
         sheet = require_sheet_client()
         # Récupérer le joueur qui abandonne
         player = get_player_by_nickname(session["nickname"])
-        
+
         if not player:
             return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
-        
-        if player["status"].lower() == "dead":
+
+        if (player.get("status") or "").lower() == "dead":
             return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 400
-        
+
         # 1. Marquer le joueur comme abandonnant (statut spécial)
         sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "gaveup")
-        
+
+        # 1b. Enregistrer un ordre d'élimination unique pour l'abandon.
+        # Utiliser le maximum des ordres existants + 1 pour garantir unicité.
+        all_players = get_all_players()
+        existing_orders = [ _parse_int(p.get("elimination_order", ""), 0) for p in all_players if str(p.get("elimination_order", "")).strip() != "" ]
+        max_order = max(existing_orders) if existing_orders else 0
+        elimination_order = max_order + 1
+        sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
+
+        # Invalider le cache pour forcer le rechargement
+        global _cached_sheet
+        _cached_sheet = None
+
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
-        if player["target"]:
+        if player.get("target"):
             # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
-            all_players = get_all_players()
             assassin = None
-            
             for p in all_players:
-                if p["target"] and player["nickname"] and p["target"].lower() == player["nickname"].lower():
+                if p.get("target") and player.get("nickname") and p.get("target").lower() == player.get("nickname").lower():
                     assassin = p
                     break
-            
+
             # Si on a trouvé l'assassin, lui donner la cible du joueur qui abandonne
+            # NB: on NE DOIT PAS incrémenter le compteur de kills de l'assassin
+            # pour un abandon. On transfère seulement la cible et l'action.
             if assassin:
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, player["target"])
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, player["action"])
-        
+                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, player.get("target", ""))
+                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, player.get("action", ""))
+
         # 3. Vider la cible actuelle du joueur qui abandonne
         sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
         sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
-        
+
         return jsonify({
             "success": True,
             "message": "Vous avez abandonné le jeu"

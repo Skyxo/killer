@@ -1032,8 +1032,12 @@ function loadPodium() {
             }
 
             if (data.game_over && data.podium && data.podium.length > 0) {
+                // marquer l'état de fin de partie et afficher le podium
+                gameIsOver = Boolean(data.game_over);
                 renderPodium(data.podium);
                 podiumSection.classList.remove('hidden');
+                // rafraîchir le trombinoscope pour que les non-admins voient la vue admin
+                renderTrombi();
                 // Afficher le message de fin de jeu
                 if (gameOverMessage) {
                     gameOverMessage.classList.remove('hidden');
@@ -1049,7 +1053,11 @@ function loadPodium() {
                     actionButtons.classList.add('hidden');
                 }
             } else {
+                // si le podium n'est pas affiché, s'assurer que gameIsOver est désactivé
+                gameIsOver = false;
                 podiumSection.classList.add('hidden');
+                // rafraîchir le trombinoscope pour revenir à la vue normale
+                renderTrombi();
                 // Cacher le message de fin de jeu
                 if (gameOverMessage) {
                     gameOverMessage.classList.add('hidden');
@@ -1104,8 +1112,7 @@ function renderPodium(podium) {
         }
 
         if (nameElement) {
-            const kills = player.kill_count || 0;
-            nameElement.textContent = `${player.nickname || '???'} (${kills} kill${kills > 1 ? 's' : ''})`;
+            nameElement.textContent = `${player.nickname || '???'}`;
         }
 
         if (yearElement && player.year) {
