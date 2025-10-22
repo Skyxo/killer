@@ -69,6 +69,7 @@ let viewerStatus = 'alive';
 let currentPlayerIsAdmin = false;
 let currentTrombiCategory = 'players';
 let currentYearFilter = 'all';
+let gameIsOver = false; // Partie terminée quand il reste 1 joueur ou moins
 
 // Sons de pet disponibles
 const petSounds = [
@@ -134,16 +135,16 @@ function closePhotoModal() {
 }
 
 function startTrombiUpdates() {
+    loadLeaderboard();
     loadTrombi();
     loadPodium();
-    loadLeaderboard();
     if (trombiIntervalId) {
         clearInterval(trombiIntervalId);
     }
     trombiIntervalId = setInterval(() => {
+        loadLeaderboard();
         loadTrombi();
         loadPodium();
-        loadLeaderboard();
     }, 30000);
 }
 
@@ -451,7 +452,7 @@ function renderTrombi() {
 
         // Affichage du statut pour les admins (à côté de l'année)
         // Les admins (joueurs avec is_admin=true) n'ont PAS de badge de statut car ils ne participent pas au jeu
-        if (currentPlayerIsAdmin && !player.is_admin) {
+        if ((currentPlayerIsAdmin || gameIsOver) && !player.is_admin) {
             const statusChip = document.createElement('span');
             
             // Afficher le statut uniquement pour les non-admins
@@ -473,8 +474,8 @@ function renderTrombi() {
 
         entryButton.appendChild(labelWrapper);
 
-        // Afficher le nombre de kills à droite pour les admins
-        if (currentPlayerIsAdmin && !player.is_admin) {
+        // Afficher le nombre de kills à droite pour les admins ou quand la partie est terminée
+        if ((currentPlayerIsAdmin || gameIsOver) && !player.is_admin) {
             const killCount = player.kill_count || 0;
             const killBadge = document.createElement('span');
             killBadge.classList.add('trombi-kill-badge');
@@ -568,7 +569,7 @@ function renderTrombiDetails(player) {
 
     // Affichage du badge de statut pour les admins (sur la même ligne que le nom)
     // Les admins (joueurs avec is_admin=true) n'ont PAS de badge de statut car ils ne participent pas au jeu
-    if (currentPlayerIsAdmin && !player.is_admin) {
+    if ((currentPlayerIsAdmin || gameIsOver) && !player.is_admin) {
         const statusPill = document.createElement('span');
         
         // Afficher le statut uniquement pour les non-admins
@@ -591,8 +592,8 @@ function renderTrombiDetails(player) {
 
     trombiDetails.appendChild(title);
 
-    // === POUR LES ADMINS UNIQUEMENT ===
-    if (currentPlayerIsAdmin && !player.is_admin) {
+    // === POUR LES ADMINS OU QUAND LA PARTIE EST TERMINÉE ===
+    if ((currentPlayerIsAdmin || gameIsOver) && !player.is_admin) {
         const isDead = player.status && (player.status.toLowerCase() === 'dead' || player.status.toLowerCase() === 'gaveup');
         const isAlive = !isDead;
         
@@ -1051,6 +1052,9 @@ async function loadLeaderboard() {
         // Calculer le nombre total de joueurs actifs (sans admins)
         const totalActivePlayers = (data.leaderboard || []).filter(player => !player.is_admin).length;
         
+        // Mettre à jour l'état global de fin de partie
+        gameIsOver = aliveCount <= 1;
+        
         // Afficher "Il reste x/N joueurs en vie" pour tout le monde
         if (leaderboardRemaining) {
             const remainingText = `(Il reste ${aliveCount}/${totalActivePlayers} joueur${aliveCount > 1 ? 's' : ''} en vie)`;
@@ -1069,8 +1073,11 @@ async function loadLeaderboard() {
         
         let playersToDisplay = [];
         
-        // Si l'utilisateur est admin, afficher le top 10
-        if (currentPlayerIsAdmin) {
+        // Si la partie est terminée (1 seul joueur en vie ou moins), afficher le top 10 pour tout le monde
+        const gameIsOver = aliveCount <= 1;
+        
+        // Si l'utilisateur est admin OU si la partie est terminée, afficher le top 10
+        if (currentPlayerIsAdmin || gameIsOver) {
             playersToDisplay = playersWithKills.slice(0, 10);
             
             // Ajouter l'admin actuel s'il a des kills et n'est pas dans le top 10
@@ -1084,7 +1091,7 @@ async function loadLeaderboard() {
                 }
             }
         } else {
-            // Si l'utilisateur n'est pas admin, afficher uniquement son propre profil
+            // Si l'utilisateur n'est pas admin et que la partie est en cours, afficher uniquement son propre profil
             if (currentPlayer && !currentPlayer.is_admin) {
                 // Calculer le classement du joueur parmi tous les joueurs avec kills
                 const playerRank = playersWithKills.findIndex(p => 
@@ -1106,7 +1113,7 @@ async function loadLeaderboard() {
             // Afficher le leaderboard
             if (leaderboardEmpty) leaderboardEmpty.classList.add('hidden');
             if (leaderboardList) leaderboardList.classList.remove('hidden');
-            renderLeaderboard(playersToDisplay);
+            renderLeaderboard(playersToDisplay, gameIsOver);
         }
     } catch (error) {
         console.error('Erreur lors du chargement du leaderboard:', error);
@@ -1114,7 +1121,7 @@ async function loadLeaderboard() {
 }
 
 // Afficher le leaderboard
-function renderLeaderboard(players) {
+function renderLeaderboard(players, gameIsOver = false) {
     leaderboardList.innerHTML = '';
     
     // Grouper les joueurs par nombre de kills (valeurs uniques triées)
@@ -1152,11 +1159,10 @@ function renderLeaderboard(players) {
         let rankClass = '';
         let rankDisplay;
         
-        // Si totalPlayers est défini, afficher juste "x" (pour les non-admins)
-        if (totalPlayers) {
-            rankDisplay = rank;
-        } else {
-            // Sinon afficher le rang normal ou les médailles (pour les admins)
+        // Si la partie est terminée OU si c'est un admin, afficher les médailles
+        // Sinon, si totalPlayers est défini, afficher juste "x" (pour les non-admins en cours de partie)
+        if (gameIsOver || !totalPlayers) {
+            // Afficher les médailles ou le rang normal
             rankDisplay = rank;
             if (rank === 1 && medalTier === 1) {
                 rankClass = ' rank-1';
@@ -1168,6 +1174,9 @@ function renderLeaderboard(players) {
                 rankClass = ' rank-3';
                 rankDisplay = '🥉';
             }
+        } else {
+            // Partie en cours, non-admin : afficher juste "x"
+            rankDisplay = rank;
         }
         
         const photoUrl = getDriveImageUrl(player.person_photo, 500);
@@ -1732,9 +1741,9 @@ function handleKilled(e) {
             playerContainer.classList.add('player-dead');
             viewerStatus = 'dead';
             viewerCanSeeStatus = true;
+            loadLeaderboard();
             loadTrombi();
             loadPodium();
-            loadLeaderboard();
         } else {
             alert(`Erreur: ${data.message}`);
         }
@@ -1783,8 +1792,8 @@ function handleGiveUp(e) {
             playerContainer.classList.add('player-gave-up');
             viewerStatus = 'gaveup';
             viewerCanSeeStatus = false;
-            loadTrombi();
             loadLeaderboard();
+            loadTrombi();
         } else {
             alert(`Erreur: ${data.message}`);
         }
