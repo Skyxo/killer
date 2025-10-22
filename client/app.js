@@ -1032,12 +1032,8 @@ function loadPodium() {
             }
 
             if (data.game_over && data.podium && data.podium.length > 0) {
-                // marquer l'état de fin de partie et afficher le podium
-                gameIsOver = Boolean(data.game_over);
                 renderPodium(data.podium);
                 podiumSection.classList.remove('hidden');
-                // rafraîchir le trombinoscope pour que les non-admins voient la vue admin
-                renderTrombi();
                 // Afficher le message de fin de jeu
                 if (gameOverMessage) {
                     gameOverMessage.classList.remove('hidden');
@@ -1053,11 +1049,7 @@ function loadPodium() {
                     actionButtons.classList.add('hidden');
                 }
             } else {
-                // si le podium n'est pas affiché, s'assurer que gameIsOver est désactivé
-                gameIsOver = false;
                 podiumSection.classList.add('hidden');
-                // rafraîchir le trombinoscope pour revenir à la vue normale
-                renderTrombi();
                 // Cacher le message de fin de jeu
                 if (gameOverMessage) {
                     gameOverMessage.classList.add('hidden');
@@ -1112,7 +1104,8 @@ function renderPodium(podium) {
         }
 
         if (nameElement) {
-            nameElement.textContent = `${player.nickname || '???'}`;
+            const kills = player.kill_count || 0;
+            nameElement.textContent = `${player.nickname || '???'} (${kills} kill${kills > 1 ? 's' : ''})`;
         }
 
         if (yearElement && player.year) {
@@ -1150,15 +1143,10 @@ async function loadLeaderboard() {
         // Mettre à jour l'état global de fin de partie
         gameIsOver = aliveCount <= 1;
         
-        // Afficher un message adapté : si la partie est terminée, remplacer
-        // l'ancien texte par le message de fin souhaité.
+        // Afficher "Il ne reste plus que x/N joueurs en vie" pour tout le monde
         if (leaderboardRemaining) {
-            if (aliveCount <= 1) {
-                leaderboardRemaining.textContent = "Le killer est terminée ! merci d'avoir joué la team";
-            } else {
-                const remainingText = `(Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie sur ${totalActivePlayers})`;
-                leaderboardRemaining.textContent = remainingText;
-            }
+            const remainingText = `(Il ne reste plus que ${aliveCount} joueur${aliveCount > 1 ? 's' : ''} en vie sur ${totalActivePlayers})`;
+            leaderboardRemaining.textContent = remainingText;
             leaderboardRemaining.classList.remove('hidden');
         }
         
