@@ -158,10 +158,12 @@ SHEET_COLUMNS = {
     "INITIAL_ACTION": 13, # Action initiale
     "CURRENT_ACTION": 14, # Action actuelle
     "STATUS": 15,     # État (alive/dead/gaveup)
-    "ELIMINATION_ORDER": 16, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
-    "KILL_COUNT": 17, # Nombre de kills
-    "ADMIN_FLAG": 18, # Indique si le joueur est administrateur (True/False)
-    "PHONE": 19,      # Téléphone
+    "KILLED_BY": 16,  # Tué par (surnom du killer)
+    "KILLED_BY_ACTION": 17, # Action que le killer devait faire pour tuer
+    "ELIMINATION_ORDER": 18, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
+    "KILL_COUNT": 19, # Nombre de kills
+    "ADMIN_FLAG": 20, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 21,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -793,16 +795,18 @@ def killed():
             assassin_kills = assassin.get("kill_count", 0)
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(assassin_kills + 1))
             
+            # Enregistrer qui a tué le joueur et avec quelle action
+            sheet.update_cell(player["row"], SHEET_COLUMNS["KILLED_BY"] + 1, assassin["nickname"])
+            sheet.update_cell(player["row"], SHEET_COLUMNS["KILLED_BY_ACTION"] + 1, assassin.get("action", "") or "")
+            
             # Mettre à jour la cible de l'assassin
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, new_action)
             
             print(f"[KILLED] {assassin['nickname']} a tué {player['nickname']} et récupère la cible {new_target}. Total kills: {assassin_kills + 1}")
         
-        # 3. Vider la cible actuelle du joueur mort pour éviter les conflits
-        # IMPORTANT: Garder initial_target et initial_action intacts pour référence
-        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
-        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
+        # 3. NE PAS vider la cible actuelle du joueur mort - garder la dernière cible/action pour référence
+        # Les champs CURRENT_TARGET et CURRENT_ACTION restent inchangés
         
         return jsonify({
             "success": True,
@@ -1067,6 +1071,9 @@ def get_all_players():
 
             phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
 
+            killed_by = (row[SHEET_COLUMNS["KILLED_BY"]] or "").strip() if len(row) > SHEET_COLUMNS["KILLED_BY"] else ""
+            killed_by_action = (row[SHEET_COLUMNS["KILLED_BY_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["KILLED_BY_ACTION"] else ""
+
             elimination_order = (row[SHEET_COLUMNS["ELIMINATION_ORDER"]] or "").strip() if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else ""
 
             kill_count_raw = (row[SHEET_COLUMNS["KILL_COUNT"]] or "").strip() if len(row) > SHEET_COLUMNS["KILL_COUNT"] else "0"
@@ -1094,6 +1101,8 @@ def get_all_players():
             "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
             "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
             "status": status,
+            "killed_by": killed_by,
+            "killed_by_action": killed_by_action,
             "is_admin": _parse_admin_flag(admin_flag_value),
             "phone": phone,
             "elimination_order": elimination_order,
@@ -1113,13 +1122,25 @@ def _normalize_status(status_value: Optional[str]) -> str:
     return "alive"
 
 
-def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: bool) -> dict:
+def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: bool, all_players: list = None) -> dict:
     nickname = player.get("nickname", "") or ""
     normalized_status = _normalize_status(player.get("status"))
     person_photo_id = player.get("person_photo", "") or ""
     year = player.get("year", "") or ""
     phone = player.get("phone", "") or ""
     is_admin = bool(player.get("is_admin"))
+    
+    # Trouver qui a ce joueur comme cible et l'action associée
+    hunter = ""
+    hunter_action = ""
+    if include_status and all_players and nickname:
+        for p in all_players:
+            target = (p.get("target") or "").strip()
+            if target and target.lower() == nickname.lower():
+                hunter = p.get("nickname", "") or ""
+                hunter_action = p.get("action", "") or ""
+                break
+    
     return {
         "nickname": nickname,
         "gender": player.get("gender", "") or "",
@@ -1134,6 +1155,10 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "before_answer": player.get("before_answer", "") or "",
         "target": player.get("target", "") or "" if include_status else "",
         "action": player.get("action", "") or "" if include_status else "",
+        "hunter": hunter if include_status else "",
+        "hunter_action": hunter_action if include_status else "",
+        "killed_by": player.get("killed_by", "") or "" if include_status else "",
+        "killed_by_action": player.get("killed_by_action", "") or "" if include_status else "",
         "kill_count": player.get("kill_count", 0) if include_status else 0,
         "elimination_order": player.get("elimination_order", "") or "" if include_status else "",
         "password": player.get("password", "") or "" if include_status else "",
@@ -1170,8 +1195,9 @@ def get_leaderboard():
 
         leaderboard.sort(key=lambda entry: (-entry["kill_count"], entry["nickname"].lower()))
 
-        # Prendre les 10 premiers
-        return jsonify({"success": True, "leaderboard": leaderboard[:10]})
+        # Renvoyer tous les joueurs (pas seulement le top 10) pour permettre le comptage correct
+        # Le frontend affichera seulement le top avec des kills, mais aura accès à tous pour le comptage
+        return jsonify({"success": True, "leaderboard": leaderboard})
     except ConnectionError as e:
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
@@ -1215,7 +1241,7 @@ def get_trombi():
     # Filtrer les joueurs actifs (elimination_order >= 0) ou les admins (qui sont toujours affichés)
     visible_players = [p for p in players if _parse_int(p.get("elimination_order", "0"), 0) >= 0 or p.get("is_admin")]
 
-    entries = [_trombi_entry(player, viewer.get("nickname"), include_status) for player in visible_players]
+    entries = [_trombi_entry(player, viewer.get("nickname"), include_status, players) for player in visible_players]
     entries.sort(key=lambda entry: (
         0 if entry.get("is_admin") else 1,
         (entry.get("nickname") or "").lower(),

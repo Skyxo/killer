@@ -380,11 +380,8 @@ input:focus {
     display: none;
 }
 
-/* Cacher les catégories admin/non-admin par défaut */
-.trombi-category-btn.admin-only,
-.trombi-category-btn.non-admin-only {
-    display: none;
-}
+/* Les catégories admin/non-admin sont gérées par JavaScript */
+/* Ne pas forcer display: none ici pour permettre au JS de les afficher */
 
 .trombi-category-hint {
     display: none;
@@ -406,6 +403,42 @@ input:focus {
     margin-top: 8px;
     text-align: center;
     opacity: 0.9;
+}
+
+.trombi-target-box {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-top: 10px;
+    font-weight: 600;
+    text-align: center;
+    background-color: rgba(156, 39, 176, 0.1);
+    border: 2px solid var(--primary-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.trombi-action-box {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    font-style: italic;
+    margin-top: 6px;
+    text-align: center;
+    background-color: rgba(103, 58, 183, 0.08);
+    border: 1px solid var(--secondary-color);
+    border-radius: 6px;
+    padding: 7px 12px;
+}
+
+.trombi-hunter-box {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-top: 10px;
+    font-weight: 600;
+    text-align: center;
+    background-color: rgba(244, 67, 54, 0.1);
+    border: 2px solid #e91e63;
+    border-radius: 6px;
+    padding: 8px 12px;
 }
 
 .trombi-phone {
