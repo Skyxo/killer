@@ -835,7 +835,7 @@ def give_up():
 
         # Invalider le cache pour forcer le rechargement
         global _cached_sheet
-        _cached_sheet = None
+        _cached_sheet = None 
 
         # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
         if player.get("target"):
