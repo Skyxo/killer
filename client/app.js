@@ -1055,9 +1055,9 @@ async function loadLeaderboard() {
         // Mettre à jour l'état global de fin de partie
         gameIsOver = aliveCount <= 1;
         
-        // Afficher "Il reste x/N joueurs en vie" pour tout le monde
+        // Afficher "Il ne reste plus que x/N joueurs en vie" pour tout le monde
         if (leaderboardRemaining) {
-            const remainingText = `(Il reste ${aliveCount}/${totalActivePlayers} joueur${aliveCount > 1 ? 's' : ''} en vie)`;
+            const remainingText = `(Il ne reste plus que ${aliveCount}/${totalActivePlayers} joueur${aliveCount > 1 ? 's' : ''} en vie)`;
             leaderboardRemaining.textContent = remainingText;
             leaderboardRemaining.classList.remove('hidden');
         }
@@ -1072,9 +1072,6 @@ async function loadLeaderboard() {
         );
         
         let playersToDisplay = [];
-        
-        // Si la partie est terminée (1 seul joueur en vie ou moins), afficher le top 10 pour tout le monde
-        const gameIsOver = aliveCount <= 1;
         
         // Si l'utilisateur est admin OU si la partie est terminée, afficher le top 10
         if (currentPlayerIsAdmin || gameIsOver) {
