@@ -616,70 +616,76 @@ function renderTrombiDetails(player) {
         if (isAlive) {
             // Si c'est le gagnant (partie terminée et vivant), afficher un message spécial
             if (gameIsOver) {
-                const winnerInfoP = document.createElement('div');
-                winnerInfoP.classList.add('trombi-winner-box');
-                
-                const winnerText = document.createElement('div');
-                winnerText.textContent = '🏆 GAGNANT 🏆';
-                winnerText.classList.add('winner-title');
-                winnerInfoP.appendChild(winnerText);
-                
-                // Chercher le dernier joueur tué par le gagnant
-                // = celui avec killed_by = gagnant et le plus grand elimination_order
-                const playersKilledByWinner = trombiPlayers.filter(p => 
-                    p.killed_by && p.killed_by.toLowerCase() === player.nickname.toLowerCase()
-                );
-                
-                if (playersKilledByWinner.length > 0) {
-                    // Trier par elimination_order décroissant et prendre le premier
-                    playersKilledByWinner.sort((a, b) => {
-                        const orderA = parseInt(a.elimination_order, 10) || 0;
-                        const orderB = parseInt(b.elimination_order, 10) || 0;
-                        return orderB - orderA;
-                    });
-                    
-                    const lastKilled = playersKilledByWinner[0];
-                    
-                    const lastKillDiv = document.createElement('div');
-                    lastKillDiv.classList.add('winner-last-kill');
-                    
-                    lastKillDiv.appendChild(document.createTextNode('Son dernier kill était '));
-                    
-                    const killedLink = document.createElement('span');
-                    killedLink.classList.add('trombi-target-link');
-                    killedLink.textContent = lastKilled.nickname;
-                    killedLink.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        selectTrombiEntry(lastKilled.nickname);
-                    });
-                    lastKillDiv.appendChild(killedLink);
-                    
-                    // Chercher l'action que le gagnant devait faire
-                    // On cherche dans l'historique ou on utilise l'action actuelle si disponible
-                    let actionToDisplay = null;
-                    
-                    // Essayer de trouver l'action dans les données du gagnant ou de la victime
-                    if (player.action && player.target && player.target.toLowerCase() === lastKilled.nickname.toLowerCase()) {
-                        // Si la cible actuelle du gagnant est la dernière victime
-                        actionToDisplay = player.action;
-                    } else if (lastKilled.hunter_action) {
-                        // Sinon utiliser hunter_action de la victime (l'action que son hunter devait faire)
-                        actionToDisplay = lastKilled.hunter_action;
+                // Afficher la boîte GAGNANT uniquement si :
+                // - Il y a exactement UN joueur non-admin avec un statut explicite 'alive'
+                // - Le joueur inspecté est ce joueur non-admin vivant
+                // Protection supplémentaire : vérifier que le statut du joueur inspecté est explicitement 'alive'
+                const aliveNonAdmin = trombiPlayers.filter(p => typeof p.status === 'string' && p.status.toLowerCase() === 'alive' && !p.is_admin);
+                const sole = aliveNonAdmin.length === 1 ? aliveNonAdmin[0] : null;
+                const isSoleWinner = sole && sole.nickname && player.nickname && sole.nickname.toLowerCase() === player.nickname.toLowerCase() && !player.is_admin && typeof player.status === 'string' && player.status.toLowerCase() === 'alive';
+                if (isSoleWinner) {
+                    const winnerInfoP = document.createElement('div');
+                    winnerInfoP.classList.add('trombi-winner-box');
+
+                    const winnerText = document.createElement('div');
+                    winnerText.textContent = '🏆 GAGNANT 🏆';
+                    winnerText.classList.add('winner-title');
+                    winnerInfoP.appendChild(winnerText);
+
+                    // Chercher le dernier joueur tué par le gagnant
+                    // = celui avec killed_by = gagnant et le plus grand elimination_order
+                    const playersKilledByWinner = trombiPlayers.filter(p => 
+                        p.killed_by && typeof p.killed_by === 'string' && p.killed_by.toLowerCase() === player.nickname.toLowerCase()
+                    );
+
+                    if (playersKilledByWinner.length > 0) {
+                        // Trier par elimination_order décroissant et prendre le premier
+                        playersKilledByWinner.sort((a, b) => {
+                            const orderA = parseInt(a.elimination_order, 10) || 0;
+                            const orderB = parseInt(b.elimination_order, 10) || 0;
+                            return orderB - orderA;
+                        });
+
+                        const lastKilled = playersKilledByWinner[0];
+
+                        const lastKillDiv = document.createElement('div');
+                        lastKillDiv.classList.add('winner-last-kill');
+
+                        lastKillDiv.appendChild(document.createTextNode('Son dernier kill était '));
+
+                        const killedLink = document.createElement('span');
+                        killedLink.classList.add('trombi-target-link');
+                        killedLink.textContent = lastKilled.nickname;
+                        killedLink.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            selectTrombiEntry(lastKilled.nickname);
+                        });
+                        lastKillDiv.appendChild(killedLink);
+
+                        // Chercher l'action que le gagnant devait faire
+                        let actionToDisplay = null;
+
+                        if (player.action && player.target && player.target.toLowerCase() === lastKilled.nickname.toLowerCase()) {
+                            actionToDisplay = player.action;
+                        } else if (lastKilled.hunter_action) {
+                            actionToDisplay = lastKilled.hunter_action;
+                        }
+
+                        if (actionToDisplay) {
+                            lastKillDiv.appendChild(document.createTextNode(' et il devait '));
+                            const actionSpan = document.createElement('span');
+                            actionSpan.classList.add('action-text');
+                            actionSpan.textContent = `"${actionToDisplay}"`;
+                            lastKillDiv.appendChild(actionSpan);
+                        }
+
+                        winnerInfoP.appendChild(lastKillDiv);
                     }
-                    
-                    if (actionToDisplay) {
-                        lastKillDiv.appendChild(document.createTextNode(' et il devait '));
-                        const actionSpan = document.createElement('span');
-                        actionSpan.classList.add('action-text');
-                        actionSpan.textContent = `"${actionToDisplay}"`;
-                        lastKillDiv.appendChild(actionSpan);
-                    }
-                    
-                    winnerInfoP.appendChild(lastKillDiv);
+
+                    trombiDetails.appendChild(winnerInfoP);
                 }
-                
-                trombiDetails.appendChild(winnerInfoP);
-            } else {
+            }
+            else {
                 // Partie en cours : afficher les infos normales
                 // 1. "Chassé par [hunter]" + action du hunter
                 if (player.hunter) {
