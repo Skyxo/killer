@@ -1557,6 +1557,19 @@ input:focus {
 @media (max-width: 480px) {
     .photo-container {
         width: 100%;
+        max-width: 100%;
+        aspect-ratio: 1 / 1;
+        height: auto;
+    }
+    
+    .player-photo, .target-photo, .new-target-photo {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+    }
+    
+    .player-mugshot-overlay {
         height: auto;
         aspect-ratio: 1 / 1;
     }
