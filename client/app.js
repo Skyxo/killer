@@ -325,38 +325,24 @@ function updateYearFilterButtons() {
 function updateTrombiCategoryButtons() {
     const categoryButtons = document.querySelectorAll('.trombi-category-btn');
     
-    console.log('=== updateTrombiCategoryButtons ===');
-    console.log('currentPlayerIsAdmin:', currentPlayerIsAdmin);
-    console.log('Nombre de boutons trouvés:', categoryButtons.length);
-    
     categoryButtons.forEach(btn => {
         const category = btn.dataset.category;
         const isAdminOnly = btn.classList.contains('admin-only');
         const isNonAdminOnly = btn.classList.contains('non-admin-only');
         
-        console.log(`Bouton "${category}":`, {
-            isAdminOnly,
-            isNonAdminOnly,
-            currentClasses: btn.className
-        });
-        
         if (currentPlayerIsAdmin) {
             // Pour les admins : afficher les catégories admin, cacher les catégories non-admin
             if (isAdminOnly) {
                 btn.classList.remove('hidden');
-                console.log(`  -> Affichage bouton admin "${category}"`);
             } else if (isNonAdminOnly) {
                 btn.classList.add('hidden');
-                console.log(`  -> Masquage bouton non-admin "${category}"`);
             }
         } else {
             // Pour les non-admins : afficher les catégories non-admin, cacher les catégories admin
             if (isNonAdminOnly) {
                 btn.classList.remove('hidden');
-                console.log(`  -> Affichage bouton non-admin "${category}"`);
             } else if (isAdminOnly) {
                 btn.classList.add('hidden');
-                console.log(`  -> Masquage bouton admin "${category}"`);
             }
         }
         
@@ -367,8 +353,6 @@ function updateTrombiCategoryButtons() {
             btn.classList.remove('active');
         }
     });
-    
-    console.log('currentTrombiCategory:', currentTrombiCategory);
 }
 
 function updateDeadPlayerInfo() {
@@ -398,13 +382,6 @@ function renderTrombi() {
 
     // Filtrer selon la catégorie sélectionnée
     const filteredPlayers = trombiPlayers.filter(player => {
-        console.log(`Filtrage joueur "${player.nickname}":`, {
-            category: currentTrombiCategory,
-            is_admin: player.is_admin,
-            status: player.status,
-            year: player.year
-        });
-        
         let categoryMatch = false;
         
         if (currentTrombiCategory === 'all') {
@@ -413,25 +390,20 @@ function renderTrombi() {
             const status = (player.status || 'alive').toLowerCase();
             // Exclure les admins de la catégorie "vivants"
             categoryMatch = status === 'alive' && !player.is_admin;
-            console.log(`  -> alive filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'dead') {
             const status = (player.status || 'alive').toLowerCase();
             // Pour la catégorie "Morts", ne plus inclure les abandons
             categoryMatch = status === 'dead';
-            console.log(`  -> dead filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'gaveup') {
             const status = (player.status || 'alive').toLowerCase();
             // Catégorie "Abandons" - uniquement pour les admins
             categoryMatch = status === 'gaveup';
-            console.log(`  -> gaveup filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'players') {
             // Catégorie "Joueurs" pour les non-admins : tous les joueurs SAUF les admins
             categoryMatch = !player.is_admin;
-            console.log(`  -> players filter result: ${categoryMatch}`);
         } else if (currentTrombiCategory === 'admins') {
             // Catégorie "Admins" pour les non-admins : seulement les admins
             categoryMatch = player.is_admin;
-            console.log(`  -> admins filter result: ${categoryMatch}`);
         } else {
             categoryMatch = true;
         }
@@ -439,7 +411,6 @@ function renderTrombi() {
         // Si on est dans la catégorie "Joueurs", appliquer le filtre d'année
         if (categoryMatch && currentTrombiCategory === 'players' && currentYearFilter !== 'all') {
             const yearMatch = player.year === currentYearFilter;
-            console.log(`  -> year filter (${currentYearFilter}): ${yearMatch}`);
             return yearMatch;
         }
         
@@ -497,7 +468,6 @@ function renderTrombi() {
 
         if (player.is_admin) {
             const adminBadge = createAdminBadge();
-            console.log('Ajout du badge admin pour:', player.nickname);
             labelWrapper.appendChild(adminBadge);
         }
 
@@ -616,7 +586,6 @@ function renderTrombiDetails(player) {
 
     if (player.is_admin) {
         const adminBadge = createAdminBadge();
-        console.log('Ajout du badge admin dans détails pour:', player.nickname);
         title.appendChild(adminBadge);
     }
 
@@ -1278,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Vider les détails du trombinoscope et afficher le message placeholder
                 if (trombiDetails) {
-                    trombiDetails.innerHTML = '<p class="trombi-placeholder">Sélectionne un joueur pour découvrir son profil.</p>';
+                    trombiDetails.innerHTML = '<p class="trombi-placeholder">Choisis un fyot pour voir sa tête (et ses pieds).</p>';
                 }
                 
                 // Mettre à jour l'état actif des boutons
@@ -1458,19 +1427,8 @@ function showPlayerInterface(data) {
     viewerStatus = (data.player.status || 'alive').toLowerCase();
     currentPlayerIsAdmin = Boolean(data.player.is_admin);
     
-    console.log('=== showPlayerInterface ===');
-    console.log('Player nickname:', normalizedPlayerNickname);
-    console.log('Player is_admin from data:', data.player.is_admin);
-    console.log('currentPlayerIsAdmin set to:', currentPlayerIsAdmin);
-    
     // Définir la catégorie par défaut selon si l'utilisateur est admin ou non
-    if (currentPlayerIsAdmin) {
-        currentTrombiCategory = 'players';
-        console.log('Admin détecté - catégorie par défaut: players');
-    } else {
-        currentTrombiCategory = 'players';
-        console.log('Non-admin détecté - catégorie par défaut: players');
-    }
+    currentTrombiCategory = 'players';
     
     loginContainer.classList.add('hidden');
     playerContainer.classList.remove('hidden');

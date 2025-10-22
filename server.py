@@ -448,9 +448,13 @@ def get_target_info(target_nickname):
     return get_player_by_nickname(target_nickname)
 
 # Fonction récursive pour trouver la prochaine cible vivante
-def find_next_alive_target(nickname, visited=None):
+def find_next_alive_target(nickname, visited=None, all_players=None):
     if visited is None:
         visited = []
+    
+    # Charger tous les joueurs une seule fois si pas déjà fourni
+    if all_players is None:
+        all_players = get_all_players()
     
     # Conversion en minuscule pour la comparaison
     if nickname and any(v and v.lower() == nickname.lower() for v in visited):
@@ -460,12 +464,14 @@ def find_next_alive_target(nickname, visited=None):
     if nickname:
         visited.append(nickname)
     
-    player = get_player_by_nickname(nickname)
+    # Trouver le joueur dans la liste
+    player = next((p for p in all_players if p["nickname"].lower() == nickname.lower()), None)
     
     if not player or not player["target"]:
         return None
     
-    target = get_player_by_nickname(player["target"])
+    # Trouver la cible dans la liste
+    target = next((p for p in all_players if p["nickname"].lower() == player["target"].lower()), None)
     
     if not target:
         return None
@@ -474,7 +480,7 @@ def find_next_alive_target(nickname, visited=None):
         return target
     
     # Si la cible est morte, chercher la cible de cette cible
-    return find_next_alive_target(target["target"], visited)
+    return find_next_alive_target(target["target"], visited, all_players)
 
 # Routes pour servir les fichiers statiques
 @app.route("/")
@@ -537,14 +543,23 @@ def login():
     # Stocker l'ID du joueur dans la session
     session["nickname"] = nickname
     
+    # Charger tous les joueurs une seule fois pour optimiser les recherches
+    try:
+        all_players = get_all_players()
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Erreur serveur: {str(e)}"}), 500
+    
     # Récupérer les informations de la cible
     target_info = None
     if player["target"]:
-        target = get_player_by_nickname(player["target"])
+        # Trouver la cible dans la liste chargée
+        target = next((p for p in all_players if p["nickname"].lower() == player["target"].lower()), None)
         
         # Si la cible est morte, trouver la prochaine cible vivante
         if target and target["status"].lower() == "dead":
-            next_target = find_next_alive_target(player["target"])
+            next_target = find_next_alive_target(player["target"], None, all_players)
             
             if next_target:
                 # Mettre à jour la cible dans la feuille
