@@ -213,6 +213,7 @@ function startTrombiUpdates() {
     loadLeaderboard();
     loadTrombi();
     loadPodium();
+    refreshPlayerTarget();
     if (trombiIntervalId) {
         clearInterval(trombiIntervalId);
     }
@@ -221,6 +222,7 @@ function startTrombiUpdates() {
         loadLeaderboard();
         loadTrombi();
         loadPodium();
+        refreshPlayerTarget();
     }, 45000);
 }
 
@@ -248,6 +250,70 @@ function resetTrombiDisplay() {
     if (trombiError) {
         trombiError.classList.add('hidden');
     }
+}
+
+/**
+ * Recharge les informations de la cible du joueur connecté
+ * Appelé régulièrement pour détecter les changements (ex: quand quelqu'un abandonne)
+ */
+function refreshPlayerTarget() {
+    // Ne pas recharger si le joueur n'est pas connecté
+    if (!currentPlayerNickname) {
+        return;
+    }
+    
+    // Ne pas recharger si le joueur est mort, a abandonné, ou est admin
+    if (viewerStatus === 'dead' || viewerStatus === 'gaveup' || currentPlayerIsAdmin) {
+        return;
+    }
+    
+    fetch('/api/me')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data || !data.success) {
+                return;
+            }
+            
+            // Mettre à jour les informations de la cible si elles ont changé
+            if (data.target) {
+                try {
+                    updateTargetInfo(data.target);
+                    if (targetCard) targetCard.classList.remove('hidden');
+                    if (noTargetMessage) noTargetMessage.classList.add('hidden');
+                } catch (error) {
+                    console.error("Erreur lors de la mise à jour des informations de la cible:", error);
+                }
+            } else {
+                // Plus de cible disponible
+                if (targetCard) targetCard.classList.add('hidden');
+                if (noTargetMessage) {
+                    noTargetMessage.textContent = `Y'a plus rien à faire ! (${accord(currentPlayerGender, 'fyot', 'fyote')})`;
+                    noTargetMessage.classList.remove('hidden');
+                }
+            }
+            
+            // Mettre à jour le statut du joueur si nécessaire
+            if (data.player && data.player.status) {
+                const newStatus = data.player.status.toLowerCase();
+                if (newStatus !== viewerStatus) {
+                    viewerStatus = newStatus;
+                    // Si le joueur est mort ou a abandonné, arrêter le polling
+                    if (newStatus === 'dead' || newStatus === 'gaveup') {
+                        // Recharger la page pour mettre à jour l'interface complète
+                        location.reload();
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            // Ignorer les erreurs silencieusement pour ne pas polluer la console
+            // Le polling réessaiera au prochain intervalle
+        });
 }
 
 function loadTrombi() {

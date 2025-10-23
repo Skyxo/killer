@@ -1045,7 +1045,19 @@ def give_up():
                         assassin = p
                         break
                 if assassin:
-                    cell_updates.append((assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, me_now.get("target", "")))
+                    # Trouver la prochaine cible vivante si la cible actuelle est morte
+                    next_target_nickname = me_now.get("target", "")
+                    target_player = get_player_by_nickname(next_target_nickname)
+                    
+                    if target_player and target_player["status"].lower() in ["dead", "gaveup"]:
+                        # La cible est morte ou a abandonné, trouver la prochaine cible vivante
+                        alive_target = find_next_alive_target(next_target_nickname, None, all_players)
+                        if alive_target:
+                            next_target_nickname = alive_target["nickname"]
+                        else:
+                            next_target_nickname = ""
+                    
+                    cell_updates.append((assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname))
 
             # 3. Vider la cible actuelle du joueur qui abandonne
             cell_updates.append((me_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, ""))
