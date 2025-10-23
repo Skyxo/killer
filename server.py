@@ -14,6 +14,7 @@ from flask_session import Session
 import gspread
 from google.oauth2 import service_account
 from google.auth.transport.requests import AuthorizedSession
+import unicodedata
 
 try:
     import requests
@@ -153,16 +154,13 @@ SHEET_COLUMNS = {
     "BEFORE_ANSWER": 8, # Est-ce que c'était mieux avant ?
     "MESSAGE_ANSWER": 9, # Un petit mot pour vos brasseurs adorés
     "CHALLENGE_IDEAS": 10, # Idées de défis
-    "INITIAL_TARGET": 11,  # Cible initiale
-    "CURRENT_TARGET": 12, # Cible actuelle
-    "INITIAL_ACTION": 13, # Action initiale
-    "CURRENT_ACTION": 14, # Action actuelle
-    "STATUS": 15,     # État (alive/dead/gaveup)
-    "KILLED_BY": 16,  # Tué par (surnom du killer)
-    "ELIMINATION_ORDER": 17, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
-    "KILL_COUNT": 18, # Nombre de kills
-    "ADMIN_FLAG": 19, # Indique si le joueur est administrateur (True/False)
-    "PHONE": 20,      # Téléphone
+    "CURRENT_TARGET": 11, # Cible actuelle
+    "STATUS": 12,     # État (alive/dead/gaveup)
+    "KILLED_BY": 13,  # Tué par (surnom du killer)
+    "ELIMINATION_ORDER": 14, # Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)
+    "KILL_COUNT": 15, # Nombre de kills
+    "ADMIN_FLAG": 16, # Indique si le joueur est administrateur (True/False)
+    "PHONE": 17,      # Téléphone
 }
 
 _sheet_cache_lock = threading.Lock()
@@ -173,6 +171,11 @@ _cached_sheet_timestamp = 0.0
 _players_cache = None
 _players_cache_timestamp = 0.0
 _players_cache_ttl = 5.0  # 5 secondes de cache pour les données joueurs
+
+# Cache pour la feuille 2 (mapping Surnom -> Défi ciblé)
+_actions_map_cache = None
+_actions_map_cache_timestamp = 0.0
+_actions_map_cache_ttl = 5.0
 
 
 class AuthorizedSessionWithTimeout(AuthorizedSession):
@@ -208,6 +211,20 @@ def _store_sheet_in_cache(sheet):
     _cached_sheet_timestamp = time.time()
 
 
+def _get_cached_actions_map(ttl_seconds: float):
+    global _actions_map_cache, _actions_map_cache_timestamp
+    now = time.time()
+    if _actions_map_cache is not None and (now - _actions_map_cache_timestamp) < ttl_seconds:
+        return _actions_map_cache
+    return None
+
+
+def _store_actions_map_in_cache(actions_map: dict):
+    global _actions_map_cache, _actions_map_cache_timestamp
+    _actions_map_cache = actions_map
+    _actions_map_cache_timestamp = time.time()
+
+
 def invalidate_players_cache():
     """Invalide le cache des joueurs après une modification"""
     global _players_cache, _players_cache_timestamp
@@ -241,6 +258,19 @@ def _parse_admin_flag(value: Optional[str]) -> bool:
     if not cleaned:
         return False
     return cleaned in {"1", "true", "yes", "on"}
+
+
+def _normalize_name(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    try:
+        # Normalisation Unicode + trim + minuscule insensible à la casse
+        text = unicodedata.normalize("NFKC", str(value)).strip()
+        # Retirer les espaces insécables/zero-width
+        text = "".join(ch for ch in text if not unicodedata.category(ch) in {"Cf"})
+        return text.casefold()
+    except Exception:
+        return str(value).strip().lower()
 
 
 # Connexion à l'API Google Sheets
@@ -293,9 +323,10 @@ def get_sheet_client():
                 if cached_sheet is not None:
                     return cached_sheet
 
-                sheet = client.open_by_key(sheet_id).sheet1
-                _store_sheet_in_cache(sheet)
-            return sheet
+                workbook = client.open_by_key(sheet_id)
+                sheet1 = workbook.sheet1
+                _store_sheet_in_cache(sheet1)
+            return sheet1
         except Exception as sheet_error:
             raise ValueError(f"Erreur lors de l'ouverture du spreadsheet: {str(sheet_error)}. Vérifiez que l'ID est correct et que le service account a les permissions nécessaires.")
     except Exception as e:
@@ -336,6 +367,67 @@ def require_sheet_client():
     return sheet
 
 
+def get_actions_map():
+    """Lit la feuille 2 et retourne un dict {nickname_lower: action_str}."""
+    cache_ttl = _actions_map_cache_ttl
+    cached = _get_cached_actions_map(cache_ttl)
+    if cached is not None:
+        return cached
+
+    # Accès au classeur puis à la deuxième feuille
+    sheet = get_sheet_client()
+    if sheet is None:
+        return {}
+    try:
+        workbook = sheet.spreadsheet
+        # Chercher la feuille "defis" par nom
+        try:
+            actions_ws = workbook.worksheet("defis")
+        except Exception:
+            # Fallback sur la 2e feuille par index
+            worksheets = workbook.worksheets()
+            if len(worksheets) < 2:
+                print("[ACTIONS_MAP] Aucune feuille 'defis' trouvée et moins de 2 feuilles")
+                _store_actions_map_in_cache({})
+                return {}
+            actions_ws = worksheets[1]
+            print(f"[ACTIONS_MAP] Utilisation de la feuille par index: {actions_ws.title}")
+        
+        values = actions_ws.get_all_values()
+        print(f"[ACTIONS_MAP] Feuille '{actions_ws.title}' - {len(values)} lignes")
+        actions_map = {}
+        # Attendu: en-têtes ["Surnom", "Défi ciblé"]
+        for row in values[1:]:
+            if not row:
+                continue
+            nickname = (row[0] or "").strip()
+            if not nickname:
+                continue
+            action = (row[1] if len(row) > 1 else "").strip()
+            actions_map[nickname.lower()] = action
+            # Log seulement les actions non vides pour réduire le spam
+            if action and action != "...":
+                print(f"[ACTIONS_MAP] Mapping: '{nickname}' -> '{action}'")
+        
+        print(f"[ACTIONS_MAP] Total mappings: {len(actions_map)}")
+        _store_actions_map_in_cache(actions_map)
+        return actions_map
+    except Exception:
+        # En cas d'erreur on renvoie un mapping vide pour ne pas casser l'app
+        import traceback
+        print(f"[ACTIONS_MAP] Erreur lors de la lecture: {traceback.format_exc()}")
+        return {}
+
+
+def get_action_for_target(target_nickname: Optional[str]) -> str:
+    if not target_nickname:
+        return ""
+    actions = get_actions_map()
+    if not isinstance(actions, dict):
+        return ""
+    return actions.get((target_nickname or "").strip().lower(), "")
+
+
 # Fonction pour initialiser la colonne "État" si elle n'existe pas
 def initialize_status_column():
     try:
@@ -346,9 +438,6 @@ def initialize_status_column():
         # Initialisation des colonnes manquantes
         if len(headers) <= SHEET_COLUMNS["CURRENT_TARGET"]:
             sheet.update_cell(1, SHEET_COLUMNS["CURRENT_TARGET"] + 1, "Cible actuelle")
-        
-        if len(headers) <= SHEET_COLUMNS["CURRENT_ACTION"]:
-            sheet.update_cell(1, SHEET_COLUMNS["CURRENT_ACTION"] + 1, "Action actuelle")
             
         if len(headers) <= SHEET_COLUMNS["STATUS"]:
             sheet.update_cell(1, SHEET_COLUMNS["STATUS"] + 1, "État")
@@ -361,15 +450,8 @@ def initialize_status_column():
         for i in range(1, len(data)):  # Commencer à la deuxième ligne (après les en-têtes)
             row = data[i]
             
-            # Initialiser la cible actuelle si elle est vide
-            if len(row) <= SHEET_COLUMNS["CURRENT_TARGET"] or not row[SHEET_COLUMNS["CURRENT_TARGET"]]:
-                if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] and row[SHEET_COLUMNS["INITIAL_TARGET"]]:
-                    sheet.update_cell(i + 1, SHEET_COLUMNS["CURRENT_TARGET"] + 1, row[SHEET_COLUMNS["INITIAL_TARGET"]])
-            
-            # Initialiser l'action actuelle si elle est vide
-            if len(row) <= SHEET_COLUMNS["CURRENT_ACTION"] or not row[SHEET_COLUMNS["CURRENT_ACTION"]]:
-                if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] and row[SHEET_COLUMNS["INITIAL_ACTION"]]:
-                    sheet.update_cell(i + 1, SHEET_COLUMNS["CURRENT_ACTION"] + 1, row[SHEET_COLUMNS["INITIAL_ACTION"]])
+            # Initialiser la cible actuelle si elle est vide (plus de colonnes initiales)
+            # On ne peut plus copier depuis une colonne initiale supprimée.
             
             # Initialiser l'état si vide
             if len(row) <= SHEET_COLUMNS["STATUS"] or not row[SHEET_COLUMNS["STATUS"]]:
@@ -395,7 +477,7 @@ def get_player_by_nickname(nickname):
     sheet = require_sheet_client()
     data = sheet.get_all_values()
 
-    target_nickname = (nickname or "").strip().lower()
+    target_nickname = _normalize_name(nickname)
 
     # Ignorer la ligne d'en-tête
     for i, row in enumerate(data[1:], 2):
@@ -406,7 +488,7 @@ def get_player_by_nickname(nickname):
         sheet_nickname = sheet_nickname_raw.strip()
 
         # Comparaison insensible à la casse pour le surnom
-        if sheet_nickname.lower() == target_nickname:
+        if _normalize_name(sheet_nickname) == target_nickname:
             password = row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else ""
             status_value = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
             admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
@@ -422,10 +504,9 @@ def get_player_by_nickname(nickname):
                 "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
                 "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
                 "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-                "initial_target": (row[SHEET_COLUMNS["INITIAL_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] else "",
                 "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
-                "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
-                "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
+                # action désormais dérivée de la feuille 2
+                "action": get_action_for_target((row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else ""),
                 "status": _normalize_status(status_value),
                 "is_admin": _parse_admin_flag(admin_flag_value),
             }
@@ -511,9 +592,20 @@ def static_files(path):
 # API Endpoints
 @app.route("/api/login", methods=["POST"])
 def login():
-    data = request.json
-    nickname = data.get("nickname")
-    password = data.get("password")
+    raw = request.get_json(silent=True)
+    if raw is None:
+        # Flask MultiDict -> dict
+        if request.form:
+            raw = request.form.to_dict(flat=True)
+        elif request.args:
+            raw = request.args.to_dict(flat=True)
+        else:
+            raw = {}
+    data = raw if isinstance(raw, dict) else {}
+
+    # Alias tolérés côté client
+    nickname = data.get("nickname") or data.get("pseudo") or data.get("username") or data.get("login")
+    password = data.get("password") or data.get("mdp") or data.get("pass")
     
     if not nickname or not password:
         return jsonify({"success": False, "message": "Surnom et mot de passe requis"}), 400
@@ -536,7 +628,8 @@ def login():
                     "person_photo": "",
                     "feet_photo": "",
                     "action": "Résoudre les problèmes de connexion à Google Sheets"
-                }
+                },
+                "hunter": None
             })
         
         player = get_player_by_nickname(nickname)
@@ -548,6 +641,9 @@ def login():
     except FileNotFoundError as e:
         return jsonify({"success": False, "message": str(e)}), 500
     except Exception as e:
+        import traceback
+        print(f"[LOGIN] Erreur: {e}. Payload: {data}")
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur de serveur: {str(e)}"}), 500
     
     if player["password"].lower() != password.lower():
@@ -578,11 +674,10 @@ def login():
                 # Mettre à jour la cible dans la feuille
                 sheet = require_sheet_client()
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
-                sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target["action"])
                 
                 # Mettre à jour l'info du joueur
                 player["target"] = next_target["nickname"]
-                player["action"] = next_target["action"]
+                player["action"] = get_action_for_target(next_target["nickname"])            
                 
                 target = next_target
             else:
@@ -593,8 +688,17 @@ def login():
                 "nickname": target["nickname"],
                 "person_photo": target["person_photo"],
                 "feet_photo": target["feet_photo"],
-                "action": player["action"]  # L'action à réaliser est stockée dans la ligne du joueur
+                "action": player["action"]
             }
+    
+    # Calculer le chasseur (celui qui a ce joueur comme cible)
+    hunter_info = None
+    hunter_player = next((p for p in all_players if p.get("target") and player.get("nickname") and p["target"].lower() == player["nickname"].lower()), None)
+    if hunter_player:
+        hunter_info = {
+            "nickname": hunter_player.get("nickname", ""),
+            "action": get_action_for_target(player.get("nickname"))
+        }
     
     # Préparer la réponse avec le profil du joueur et sa cible
     response = {
@@ -606,7 +710,8 @@ def login():
             "status": player["status"],
             "is_admin": bool(player.get("is_admin")),
         },
-        "target": target_info
+        "target": target_info,
+        "hunter": hunter_info
     }
     
     return jsonify(response)
@@ -639,11 +744,10 @@ def get_me():
                 # Mettre à jour la cible dans la feuille
                 sheet = require_sheet_client()
                 sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
-                sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target["action"])
                 
                 # Mettre à jour l'info du joueur
                 player["target"] = next_target["nickname"]
-                player["action"] = next_target["action"]
+                player["action"] = get_action_for_target(next_target["nickname"])            
                 
                 target = next_target
             else:
@@ -654,8 +758,18 @@ def get_me():
                 "nickname": target["nickname"],
                 "person_photo": target["person_photo"],
                 "feet_photo": target["feet_photo"],
-                "action": player["action"]  # L'action à réaliser est stockée dans la ligne du joueur
+                "action": player["action"]
             }
+    
+    # Calculer le chasseur (celui qui a ce joueur comme cible)
+    all_players = get_all_players()
+    hunter_info = None
+    hunter_player = next((p for p in all_players if p.get("target") and player.get("nickname") and p["target"].lower() == player["nickname"].lower()), None)
+    if hunter_player:
+        hunter_info = {
+            "nickname": hunter_player.get("nickname", ""),
+            "action": get_action_for_target(player.get("nickname"))
+        }
     
     # Préparer la réponse avec le profil du joueur et sa cible
     response = {
@@ -667,7 +781,8 @@ def get_me():
             "status": player["status"],
             "is_admin": bool(player.get("is_admin")),
         },
-        "target": target_info
+        "target": target_info,
+        "hunter": hunter_info
     }
     
     return jsonify(response)
@@ -720,12 +835,12 @@ def kill():
         
         # 2. Mettre à jour le killer avec la nouvelle cible
         sheet.update_cell(killer["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname)
-        sheet.update_cell(killer["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, next_target_action)
+        # plus d'écriture d'action dans la feuille 1
         
         # 3. Marquer la victime comme morte et vider sa cible actuelle
         sheet.update_cell(victim["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
         sheet.update_cell(victim["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
-        sheet.update_cell(victim["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
+        # plus d'écriture d'action dans la feuille 1
         
         # Récupérer les infos de la nouvelle cible pour la réponse
         new_target_info = None
@@ -736,7 +851,7 @@ def kill():
                     "nickname": new_target["nickname"],
                     "person_photo": new_target["person_photo"],
                     "feet_photo": new_target["feet_photo"],
-                    "action": next_target_action
+                    "action": get_action_for_target(new_target["nickname"]) or next_target_action
                 }
         
         response = {
@@ -794,9 +909,9 @@ def killed():
         # Si on a trouvé l'assassin, lui donner la cible du joueur tué et incrémenter son score
         if assassin:
             new_target = player.get("target") or ""
-            new_action = player.get("action") or ""
+            new_action = get_action_for_target(new_target) or ""
             sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
-            sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, new_action)
+            # plus d'écriture d'action dans la feuille 1
             
             # Incrémenter le nombre de kills de l'assassin
             assassin_kills = assassin.get("kill_count", 0)
@@ -808,6 +923,7 @@ def killed():
             print(f"[KILLED] Assassin {assassin['nickname']} a maintenant {assassin_kills + 1} kills")
         
         # 3. Garder la cible du joueur mort (ne pas vider les champs)
+        # (on ne touche pas à l'action car elle n'existe plus dans la feuille 1)
         
         return jsonify({
             "success": True,
@@ -862,11 +978,11 @@ def give_up():
             # pour un abandon. On transfère seulement la cible et l'action.
             if assassin:
                 sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, player.get("target", ""))
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, player.get("action", ""))
+                # plus d'écriture d'action dans la feuille 1
 
         # 3. Vider la cible actuelle du joueur qui abandonne
         sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
-        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_ACTION"] + 1, "")
+        # plus d'écriture d'action dans la feuille 1
 
         return jsonify({
             "success": True,
@@ -903,9 +1019,9 @@ def admin_overview():
                 "nickname": player.get("nickname", ""),
                 "status": (player.get("status") or "alive"),
                 "target": player.get("target") or "",
-                "action": player.get("action") or "",
+                "action": get_action_for_target(player.get("target")) or "",
                 "initial_target": player.get("initial_target") or "",
-                "initial_action": player.get("initial_action") or "",
+                "initial_action": "",
                 "is_admin": bool(player.get("is_admin")),
             }
         )
@@ -1073,7 +1189,7 @@ def get_all_players():
                 continue  # Ignorer les lignes incomplètes
 
             nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
-            nickname = nickname_raw.strip()
+            nickname = (nickname_raw or "").strip()
 
             # Ignorer les lignes sans surnom valide
             if not nickname:
@@ -1112,10 +1228,9 @@ def get_all_players():
             "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
             "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
             "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-            "initial_target": (row[SHEET_COLUMNS["INITIAL_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_TARGET"] else "",
             "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
-            "initial_action": (row[SHEET_COLUMNS["INITIAL_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["INITIAL_ACTION"] else "",
-            "action": (row[SHEET_COLUMNS["CURRENT_ACTION"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_ACTION"] else "",
+            # action désormais dérivée de la feuille 2
+            "action": get_action_for_target((row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else ""),
             "status": status,
             "killed_by": killed_by,
             "is_admin": _parse_admin_flag(admin_flag_value),
@@ -1158,18 +1273,15 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
             target = (p.get("target") or "").strip()
             if target and target.lower() == nickname.lower():
                 hunter = p.get("nickname", "") or ""
-                hunter_action = p.get("action", "") or ""
+                hunter_action = get_action_for_target(nickname) if include_status else ""
                 break
     
     # Si le joueur est mort, chercher l'action que son killer devait faire
     killer_action = ""
     if include_status and normalized_status in {"dead", "gaveup"} and player.get("killed_by"):
         killed_by_name = (player.get("killed_by") or "").strip().lower()
-        if killed_by_name and all_players:
-            for p in all_players:
-                if (p.get("nickname") or "").strip().lower() == killed_by_name:
-                    killer_action = p.get("action", "") or ""
-                    break
+        if killed_by_name:
+            killer_action = get_action_for_target(nickname)
     
     return {
         "nickname": nickname,
@@ -1184,7 +1296,7 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "kro_answer": player.get("kro_answer", "") or "",
         "before_answer": player.get("before_answer", "") or "",
         "target": player.get("target", "") or "" if include_status else "",
-        "action": player.get("action", "") or "" if include_status else "",
+        "action": (get_action_for_target(player.get("target")) if include_status else ""),
         "hunter": hunter if include_status else "",
         "hunter_action": hunter_action if include_status else "",
         "killed_by": player.get("killed_by", "") or "" if include_status else "",

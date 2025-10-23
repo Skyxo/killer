@@ -245,6 +245,11 @@ function loadTrombi() {
                 throw new Error('Format de réponse invalide');
             }
 
+            // Cacher le message d'erreur si le chargement réussit
+            if (trombiError) {
+                trombiError.classList.add('hidden');
+            }
+
             viewerCanSeeStatus = Boolean(data.viewer && data.viewer.can_view_status);
             if (data.viewer && typeof data.viewer.status === 'string') {
                 viewerStatus = data.viewer.status;
@@ -276,6 +281,10 @@ function loadTrombi() {
             renderTrombi();
         })
         .catch(error => {
+            // Adoucir les erreurs 503: masquer silencieusement, on réessaiera plus tard
+            if (error.message && error.message.includes('503')) {
+                return;
+            }
             console.error('Erreur lors du chargement du trombinoscope:', error);
             if (trombiError) {
                 trombiError.classList.remove('hidden');
@@ -742,30 +751,31 @@ function renderTrombiDetails(player) {
                 // 1. "Chassé par [hunter]" + action du hunter
                 if (player.hunter) {
                     const hunterInfoP = document.createElement('div');
-                    hunterInfoP.classList.add('trombi-hunter-box');
+                    hunterInfoP.classList.add('trombi-hunter-box', 'kill-info-box');
                     
-                    hunterInfoP.appendChild(document.createTextNode('Chassé par '));
+                    const killIcon = document.createElement('span');
+                    killIcon.classList.add('kill-icon');
+                    killIcon.textContent = '💀';
+                    hunterInfoP.appendChild(killIcon);
+                    
+                    const killText = document.createElement('span');
+                    killText.appendChild(document.createTextNode('Chassé par '));
                     
                     const hunterLink = document.createElement('span');
                     hunterLink.classList.add('trombi-target-link');
                     hunterLink.textContent = player.hunter;
-                    hunterLink.style.cursor = 'pointer';
-                    hunterLink.style.textDecoration = 'underline';
-                    hunterLink.style.color = 'var(--primary-color)';
                     hunterLink.addEventListener('click', (e) => {
                         e.stopPropagation();
                         selectTrombiEntry(player.hunter);
                     });
-                    hunterInfoP.appendChild(hunterLink);
+                    killText.appendChild(hunterLink);
+                    hunterInfoP.appendChild(killText);
                     
                     if (player.hunter_action) {
-                        hunterInfoP.appendChild(document.createElement('br'));
-                        const hunterActionSpan = document.createElement('span');
-                        hunterActionSpan.style.fontStyle = 'italic';
-                        hunterActionSpan.style.fontSize = '0.85rem';
-                        hunterActionSpan.style.color = '#888888';
-                        hunterActionSpan.textContent = `"${player.hunter_action}"`;
-                        hunterInfoP.appendChild(hunterActionSpan);
+                        const actionDiv = document.createElement('div');
+                        actionDiv.classList.add('action-text');
+                        actionDiv.textContent = `"${player.hunter_action}"`;
+                        hunterInfoP.appendChild(actionDiv);
                     }
                     
                     trombiDetails.appendChild(hunterInfoP);
@@ -774,30 +784,31 @@ function renderTrombiDetails(player) {
                 // 2. "Sa cible est [cible]" + action
                 if (player.target) {
                     const targetInfoP = document.createElement('div');
-                    targetInfoP.classList.add('trombi-target-box');
+                    targetInfoP.classList.add('trombi-target-box', 'kill-info-box');
                     
-                    targetInfoP.appendChild(document.createTextNode('Sa cible est '));
+                    const targetIcon = document.createElement('span');
+                    targetIcon.classList.add('kill-icon');
+                    targetIcon.textContent = '🎯';
+                    targetInfoP.appendChild(targetIcon);
+                    
+                    const targetText = document.createElement('span');
+                    targetText.appendChild(document.createTextNode('Sa cible est '));
                     
                     const targetLink = document.createElement('span');
                     targetLink.classList.add('trombi-target-link');
                     targetLink.textContent = player.target;
-                    targetLink.style.cursor = 'pointer';
-                    targetLink.style.textDecoration = 'underline';
-                    targetLink.style.color = 'var(--primary-color)';
                     targetLink.addEventListener('click', (e) => {
                         e.stopPropagation();
                         selectTrombiEntry(player.target);
                     });
-                    targetInfoP.appendChild(targetLink);
+                    targetText.appendChild(targetLink);
+                    targetInfoP.appendChild(targetText);
                     
                     if (player.action) {
-                        targetInfoP.appendChild(document.createElement('br'));
-                        const actionSpan = document.createElement('span');
-                        actionSpan.style.fontStyle = 'italic';
-                        actionSpan.style.fontSize = '0.85rem';
-                        actionSpan.style.color = '#888888';
-                        actionSpan.textContent = `"${player.action}"`;
-                        targetInfoP.appendChild(actionSpan);
+                        const actionDiv = document.createElement('div');
+                        actionDiv.classList.add('action-text');
+                        actionDiv.textContent = `"${player.action}"`;
+                        targetInfoP.appendChild(actionDiv);
                     }
                     
                     trombiDetails.appendChild(targetInfoP);
@@ -1137,8 +1148,13 @@ function loadPodium() {
             }
         })
         .catch(error => {
+            // Adoucir les erreurs 503: masquer silencieusement, on réessaiera plus tard
+            if (error.message && error.message.includes('503')) {
+                if (podiumSection) podiumSection.classList.add('hidden');
+                return;
+            }
             console.error('Erreur lors du chargement du podium:', error);
-            podiumSection.classList.add('hidden');
+            if (podiumSection) podiumSection.classList.add('hidden');
         });
 }
 
@@ -1196,6 +1212,11 @@ async function loadLeaderboard() {
         });
 
         if (!response.ok) {
+            // Adoucir l'erreur 503: ne pas spam console, juste masquer la section, on réessaiera plus tard
+            if (response.status === 503) {
+                if (leaderboardSection) leaderboardSection.classList.add('hidden');
+                return;
+            }
             console.error('Erreur lors du chargement du leaderboard:', response.status);
             return;
         }
@@ -1271,7 +1292,8 @@ async function loadLeaderboard() {
             renderLeaderboard(playersToDisplay, gameIsOver);
         }
     } catch (error) {
-        console.error('Erreur lors du chargement du leaderboard:', error);
+        // Erreur réseau: masquer la section sans alerter l'utilisateur
+        if (leaderboardSection) leaderboardSection.classList.add('hidden');
     }
 }
 

@@ -809,18 +809,19 @@ input:focus {
 .trombi-winner-box {
     padding: 1.5rem;
     margin-top: 1rem;
-    background: linear-gradient(135deg, var(--accent-color) 0%, #9b59b6 100%);
+    background: linear-gradient(135deg, rgba(142, 36, 170, 0.15) 0%, rgba(155, 89, 182, 0.1) 100%);
+    border: 2px solid var(--accent-color);
     border-radius: 12px;
     text-align: center;
     color: var(--text-color);
-    box-shadow: 0 8px 16px rgba(155, 89, 182, 0.3);
+    box-shadow: 0 4px 12px rgba(155, 89, 182, 0.2);
 }
 
 .winner-title {
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 1rem;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .winner-last-kill {
@@ -828,17 +829,18 @@ input:focus {
     font-weight: normal;
     line-height: 1.6;
     margin-top: 0.5rem;
+    text-align: center;
 }
 
 .winner-last-kill .trombi-target-link {
     font-weight: bold;
     text-decoration: underline;
     cursor: pointer;
-    color: #fff;
+    color: var(--primary-color);
 }
 
 .winner-last-kill .trombi-target-link:hover {
-    color: #ffd700;
+    color: var(--accent-color);
 }
 
 /* Styles pour les informations de kill (joueurs morts) */
@@ -894,6 +896,15 @@ input:focus {
     margin-top: 0.5rem;
     padding-left: 2.25rem;
     line-height: 1.4;
+}
+
+/* Centrer le texte d'action dans la boîte gagnant */
+.winner-last-kill .action-text {
+    text-align: center;
+    padding-left: 0;
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    color: var(--text-color);
 }
 
 .leaderboard-table td {
@@ -1217,6 +1228,11 @@ input:focus {
     z-index: -1;
     border-radius: 10px;
     pointer-events: none;
+}
+
+/* Les admins n'ont pas de fond rouge car ils ne jouent pas */
+.player-admin.player-dead::after {
+    background-color: transparent;
 }
 
 /* Classe pour indiquer visuellement un joueur qui a abandonné */
