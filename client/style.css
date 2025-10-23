@@ -77,6 +77,15 @@ header {
     padding-top: 20px;
 }
 
+/* Ligne contenant les emojis et le logo U56 */
+.logo-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
 .logo-container {
     --logo-size: 120px;
     --blood-scale: 1.35;
@@ -87,6 +96,27 @@ header {
     justify-content: center;
     width: var(--logo-size);
     height: var(--logo-size);
+}
+
+/* Boutons emoji musique */
+.emoji-btn {
+    background: transparent;
+    border: none;
+    font-size: 28px; /* plus petit que le logo */
+    line-height: 1;
+    cursor: pointer;
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+    transition: transform 0.1s ease;
+}
+
+.emoji-btn:hover,
+.emoji-btn:focus-visible {
+    transform: scale(1.06);
+    outline: none;
+}
+
+.emoji-btn:active {
+    transform: scale(0.94);
 }
 
 .logo-container::before {
@@ -162,6 +192,11 @@ h2 {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
     max-width: 500px;
     margin: 0 auto;
+}
+
+#kronnection-title {
+    cursor: pointer;
+    user-select: none;
 }
 
 .form-group {

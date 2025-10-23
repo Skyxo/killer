@@ -14,18 +14,22 @@
 <body>
     <div class="container">
         <header>
-            <div class="logo-container">
-                <img src="./client/logo_u56.jpeg" alt="Logo U56" class="logo">
+            <div class="logo-line">
+                <button id="emoji-left" class="emoji-btn" aria-label="Musique gauche" title="Musique">🎵</button>
+                <div class="logo-container">
+                    <img src="./client/logo_u56.jpeg" alt="Logo U56" class="logo" id="u56-logo">
+                </div>
+                <button id="emoji-right" class="emoji-btn" aria-label="Musique droite" title="Musique">🎵</button>
             </div>
             <h1>
-                <img src="./client/img/Killer.png" alt="Titre Killer" class="title-image">
+                <img src="./client/img/Killer.png" alt="Titre Killer" class="title-image" id="killer-logo">
             </h1>
             <p class="subtitle">Sois le dernier survivant du week-end</p>
         </header>
 
         <!-- Formulaire de connexion -->
         <div id="login-container">
-            <h2>Krônnexion</h2>
+            <h2 id="kronnection-title" tabindex="0" role="button" title="Clique pour un son">Krônnexion</h2>
             <form id="login-form">
                 <div class="form-group">
                     <label for="nickname">ptdr t ki ?</label>

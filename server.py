@@ -7,6 +7,10 @@ from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
 
 import gunicorn.app.base
+import warnings
+
+# Réduire le bruit des avertissements de dépréciation dans la console
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
@@ -112,6 +116,9 @@ print("Environnement chargé:")
 print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE')}")
 print(f"SHEET_ID: {os.environ.get('SHEET_ID')}")
 
+# Contrôle de verbosité des logs ACTIONS_MAP
+ACTIONS_VERBOSE = _env_flag_is_true(os.environ.get("VERBOSE_ACTIONS_LOG"))
+
 app = Flask(__name__, static_folder='client')
 
 # Configuration des sessions
@@ -176,6 +183,57 @@ _players_cache_ttl = 5.0  # 5 secondes de cache pour les données joueurs
 _actions_map_cache = None
 _actions_map_cache_timestamp = 0.0
 _actions_map_cache_ttl = 5.0
+
+# Verrou global pour sérialiser les écritures critiques sur Google Sheets
+_sheet_write_lock = threading.Lock()
+
+# Helpers A1 et batch update avec retry exponentiel
+def _col_to_letter(col: int) -> str:
+    """Convertit un index de colonne (1-based) en lettre A1 (A, B, ..., AA, AB, ...)."""
+    col = int(col)
+    letters = ''
+    while col > 0:
+        col, remainder = divmod(col - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
+
+def _a1(row: int, col: int) -> str:
+    return f"{_col_to_letter(col)}{int(row)}"
+
+def _batch_update_with_retry(sheet, updates: list, retries: int = 3, initial_delay: float = 0.5):
+    """Exécute Worksheet.batch_update avec retry exponentiel.
+    updates: liste d'objets {'range': 'A1', 'values': [[value]]}
+    """
+    delay = initial_delay
+    last_err = None
+    for attempt in range(retries):
+        try:
+            # value_input_option RAW pour ne pas interpréter
+            return sheet.batch_update(updates, value_input_option='RAW')
+        except Exception as e:
+            last_err = e
+            if attempt == retries - 1:
+                raise
+            time.sleep(delay)
+            delay *= 2
+    if last_err:
+        raise last_err
+
+def _update_cells_with_retry(sheet, cell_updates: list, retries: int = 3, initial_delay: float = 0.3):
+    """Met à jour une liste de cellules avec retry exponentiel.
+    cell_updates: liste de tuples (row, col, value) avec indices 1-based pour col.
+    """
+    for (row, col, value) in cell_updates:
+        delay = initial_delay
+        for attempt in range(retries):
+            try:
+                sheet.update_cell(row, col, value)
+                break
+            except Exception as e:
+                if attempt == retries - 1:
+                    raise
+                time.sleep(delay)
+                delay *= 2
 
 
 class AuthorizedSessionWithTimeout(AuthorizedSession):
@@ -387,14 +445,17 @@ def get_actions_map():
             # Fallback sur la 2e feuille par index
             worksheets = workbook.worksheets()
             if len(worksheets) < 2:
-                print("[ACTIONS_MAP] Aucune feuille 'defis' trouvée et moins de 2 feuilles")
+                if ACTIONS_VERBOSE:
+                    print("[ACTIONS_MAP] Aucune feuille 'defis' trouvée et moins de 2 feuilles")
                 _store_actions_map_in_cache({})
                 return {}
             actions_ws = worksheets[1]
-            print(f"[ACTIONS_MAP] Utilisation de la feuille par index: {actions_ws.title}")
+            if ACTIONS_VERBOSE:
+                print(f"[ACTIONS_MAP] Utilisation de la feuille par index: {actions_ws.title}")
         
         values = actions_ws.get_all_values()
-        print(f"[ACTIONS_MAP] Feuille '{actions_ws.title}' - {len(values)} lignes")
+        if ACTIONS_VERBOSE:
+            print(f"[ACTIONS_MAP] Feuille '{actions_ws.title}' - {len(values)} lignes")
         actions_map = {}
         # Attendu: en-têtes ["Surnom", "Défi ciblé"]
         for row in values[1:]:
@@ -405,17 +466,21 @@ def get_actions_map():
                 continue
             action = (row[1] if len(row) > 1 else "").strip()
             actions_map[nickname.lower()] = action
-            # Log seulement les actions non vides pour réduire le spam
-            if action and action != "...":
+            # Log seulement si verbosité activée
+            if ACTIONS_VERBOSE and action and action != "...":
                 print(f"[ACTIONS_MAP] Mapping: '{nickname}' -> '{action}'")
         
-        print(f"[ACTIONS_MAP] Total mappings: {len(actions_map)}")
+        if ACTIONS_VERBOSE:
+            print(f"[ACTIONS_MAP] Total mappings: {len(actions_map)}")
         _store_actions_map_in_cache(actions_map)
         return actions_map
     except Exception:
         # En cas d'erreur on renvoie un mapping vide pour ne pas casser l'app
         import traceback
-        print(f"[ACTIONS_MAP] Erreur lors de la lecture: {traceback.format_exc()}")
+        if ACTIONS_VERBOSE:
+            print(f"[ACTIONS_MAP] Erreur lors de la lecture: {traceback.format_exc()}")
+        else:
+            print("[ACTIONS_MAP] Erreur lors de la lecture (voir logs détaillés si VERBOSE_ACTIONS_LOG=1)")
         return {}
 
 
@@ -739,16 +804,16 @@ def get_me():
         # Si la cible est morte, trouver la prochaine cible vivante
         if target and target["status"].lower() == "dead":
             next_target = find_next_alive_target(player["target"])
-            
             if next_target:
-                # Mettre à jour la cible dans la feuille
+                # Mettre à jour la cible dans la feuille avec verrou + retry
                 sheet = require_sheet_client()
-                sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
-                
-                # Mettre à jour l'info du joueur
+                with _sheet_write_lock:
+                    _update_cells_with_retry(sheet, [
+                        (player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
+                    ])
+                # Mettre à jour l'info du joueur en mémoire
                 player["target"] = next_target["nickname"]
                 player["action"] = get_action_for_target(next_target["nickname"])            
-                
                 target = next_target
             else:
                 target = None
@@ -829,18 +894,25 @@ def kill():
                 next_target_nickname = ""
                 next_target_action = ""
         
-        # 1. Incrémenter le nombre de kills du killer
-        killer_kills = killer.get("kill_count", 0)
-        sheet.update_cell(killer["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(killer_kills + 1))
-        
-        # 2. Mettre à jour le killer avec la nouvelle cible
-        sheet.update_cell(killer["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname)
-        # plus d'écriture d'action dans la feuille 1
-        
-        # 3. Marquer la victime comme morte et vider sa cible actuelle
-        sheet.update_cell(victim["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
-        sheet.update_cell(victim["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
-        # plus d'écriture d'action dans la feuille 1
+        # Écritures atomisées avec verrou local + retry
+        with _sheet_write_lock:
+            # Recharger pour réduire les races
+            killer_now = get_player_by_nickname(session["nickname"]) or killer
+            victim_now = get_player_by_nickname(victim["nickname"]) or victim
+            if victim_now and str(victim_now.get("status", "")).lower() == "dead":
+                return jsonify({"success": False, "message": "Cette cible est déjà morte"}), 409
+
+            killer_kills = killer_now.get("kill_count", 0)
+            _update_cells_with_retry(sheet, [
+                (killer_now["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(killer_kills + 1)),
+                (killer_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname or ""),
+                (victim_now["row"], SHEET_COLUMNS["STATUS"] + 1, "dead"),
+                (victim_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, ""),
+                (victim_now["row"], SHEET_COLUMNS["KILLED_BY"] + 1, killer_now.get("nickname", "")),
+            ])
+
+        # Invalider le cache joueurs pour diffuser les changements
+        invalidate_players_cache()
         
         # Récupérer les infos de la nouvelle cible pour la réponse
         new_target_info = None
@@ -890,37 +962,37 @@ def killed():
         
         print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actifs actuels: {dead_active_count})")
         
-        # 1. Marquer le joueur comme mort et enregistrer l'ordre d'élimination
-        sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "dead")
-        sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
-        
+        # Écritures atomisées avec verrou local + retry
+        with _sheet_write_lock:
+            # Relecture actuelle
+            me_now = get_player_by_nickname(session["nickname"]) or player
+            if str(me_now.get("status", "")).lower() == "dead":
+                return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 409
+
+            # Recalculer assassin avec lecture actuelle
+            all_now = get_all_players()
+            assassin = None
+            for p in all_now:
+                if p.get("target") and me_now.get("nickname") and p["target"].lower() == me_now["nickname"].lower():
+                    assassin = p
+                    break
+
+            cell_updates = [
+                (me_now["row"], SHEET_COLUMNS["STATUS"] + 1, "dead"),
+                (me_now["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order)),
+            ]
+            if assassin:
+                new_target = me_now.get("target") or ""
+                assassin_kills = assassin.get("kill_count", 0)
+                cell_updates.extend([
+                    (assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target),
+                    (assassin["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(assassin_kills + 1)),
+                    (me_now["row"], SHEET_COLUMNS["KILLED_BY"] + 1, assassin.get("nickname", "")),
+                ])
+            _update_cells_with_retry(sheet, cell_updates)
+
         # Invalider le cache pour forcer le rechargement
         invalidate_players_cache()
-        
-        # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
-        # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
-        assassin = None
-        
-        for p in all_players:
-            if p["target"] and player["nickname"] and p["target"].lower() == player["nickname"].lower():
-                assassin = p
-                break
-        
-        # Si on a trouvé l'assassin, lui donner la cible du joueur tué et incrémenter son score
-        if assassin:
-            new_target = player.get("target") or ""
-            new_action = get_action_for_target(new_target) or ""
-            sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target)
-            # plus d'écriture d'action dans la feuille 1
-            
-            # Incrémenter le nombre de kills de l'assassin
-            assassin_kills = assassin.get("kill_count", 0)
-            sheet.update_cell(assassin["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(assassin_kills + 1))
-            
-            # Enregistrer qui a tué le joueur
-            sheet.update_cell(player["row"], SHEET_COLUMNS["KILLED_BY"] + 1, assassin["nickname"])
-            
-            print(f"[KILLED] Assassin {assassin['nickname']} a maintenant {assassin_kills + 1} kills")
         
         # 3. Garder la cible du joueur mort (ne pas vider les champs)
         # (on ne touche pas à l'action car elle n'existe plus dans la feuille 1)
@@ -950,39 +1022,38 @@ def give_up():
         if (player.get("status") or "").lower() == "dead":
             return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 400
 
-        # 1. Marquer le joueur comme abandonnant (statut spécial)
-        sheet.update_cell(player["row"], SHEET_COLUMNS["STATUS"] + 1, "gaveup")
+        with _sheet_write_lock:
+            me_now = get_player_by_nickname(session["nickname"]) or player
+            if str(me_now.get("status", "")).lower() == "dead":
+                return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 409
 
-        # 1b. Enregistrer un ordre d'élimination unique pour l'abandon.
-        # Utiliser le maximum des ordres existants + 1 pour garantir unicité.
-        all_players = get_all_players()
-        existing_orders = [ _parse_int(p.get("elimination_order", ""), 0) for p in all_players if str(p.get("elimination_order", "")).strip() != "" ]
-        max_order = max(existing_orders) if existing_orders else 0
-        elimination_order = max_order + 1
-        sheet.update_cell(player["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order))
+            all_players = get_all_players()
+            existing_orders = [ _parse_int(p.get("elimination_order", ""), 0) for p in all_players if str(p.get("elimination_order", "")).strip() != "" ]
+            max_order = max(existing_orders) if existing_orders else 0
+            elimination_order = max_order + 1
+
+            cell_updates = [
+                (me_now["row"], SHEET_COLUMNS["STATUS"] + 1, "gaveup"),
+                (me_now["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order)),
+            ]
+
+            # 2. Si le joueur a une cible, il faut la réaffecter à son assassin (sans incrémenter ses kills)
+            if me_now.get("target"):
+                assassin = None
+                for p in all_players:
+                    if p.get("target") and me_now.get("nickname") and p.get("target").lower() == me_now.get("nickname").lower():
+                        assassin = p
+                        break
+                if assassin:
+                    cell_updates.append((assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, me_now.get("target", "")))
+
+            # 3. Vider la cible actuelle du joueur qui abandonne
+            cell_updates.append((me_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, ""))
+
+            _update_cells_with_retry(sheet, cell_updates)
 
         # Invalider le cache pour forcer le rechargement
-        invalidate_players_cache() 
-
-        # 2. Si le joueur a une cible, il faut la réaffecter à son assassin
-        if player.get("target"):
-            # Trouver l'assassin du joueur (celui qui a ce joueur comme cible)
-            assassin = None
-            for p in all_players:
-                if p.get("target") and player.get("nickname") and p.get("target").lower() == player.get("nickname").lower():
-                    assassin = p
-                    break
-
-            # Si on a trouvé l'assassin, lui donner la cible du joueur qui abandonne
-            # NB: on NE DOIT PAS incrémenter le compteur de kills de l'assassin
-            # pour un abandon. On transfère seulement la cible et l'action.
-            if assassin:
-                sheet.update_cell(assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, player.get("target", ""))
-                # plus d'écriture d'action dans la feuille 1
-
-        # 3. Vider la cible actuelle du joueur qui abandonne
-        sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, "")
-        # plus d'écriture d'action dans la feuille 1
+        invalidate_players_cache()
 
         return jsonify({
             "success": True,
@@ -1502,7 +1573,9 @@ def _build_gunicorn_options() -> dict:
         "workers": workers,
         "timeout": timeout,
         "keepalive": keepalive,
-        "accesslog": os.environ.get("GUNICORN_ACCESS_LOG", "-"),
+        # Désactiver les access logs par défaut pour éviter le bruit en console.
+        # Pour réactiver: export GUNICORN_ACCESS_LOG="-" ou vers un fichier.
+        "accesslog": (os.environ.get("GUNICORN_ACCESS_LOG") or None),
         "errorlog": os.environ.get("GUNICORN_ERROR_LOG", "-"),
         "loglevel": os.environ.get("GUNICORN_LOGLEVEL", "info"),
         "worker_tmp_dir": os.environ.get("GUNICORN_WORKER_TMP_DIR"),

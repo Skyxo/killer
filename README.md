@@ -188,7 +188,7 @@ sudo kill -9 PID
 
 ```
 
-Surveillez ensuite les journaux spécifiques à l'application :
+Surveillez ensuite les journaux spécifiques à l'application :
 
 ```bash
 sudo tail -f /var/log/killer.log /var/log/killer.error.log

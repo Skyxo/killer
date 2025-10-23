@@ -47,6 +47,24 @@ const leaderboardList = document.getElementById('leaderboard-list');
 const leaderboardEmpty = document.getElementById('leaderboard-empty');
 const leaderboardRemaining = document.getElementById('leaderboard-remaining');
 
+// Drapeau anti-double-clic pour actions critiques
+let actionInFlight = false;
+
+function setActionButtonsDisabled(disabled) {
+    try {
+        if (killedBtn) killedBtn.disabled = disabled;
+        if (giveUpBtn) giveUpBtn.disabled = disabled;
+        if (logoutBtn) logoutBtn.disabled = disabled; // évite collision d'état pendant mutation
+    } catch (_) {}
+}
+
+// Éléments cliquables de l'en-tête
+const u56Logo = document.getElementById('u56-logo');
+const killerLogo = document.getElementById('killer-logo');
+const kronnectionTitle = document.getElementById('kronnection-title');
+const emojiLeft = document.getElementById('emoji-left');
+const emojiRight = document.getElementById('emoji-right');
+
 // Fonction helper pour accorder les messages selon le genre
 function accord(gender, masculine, feminine) {
     const isFemale = gender && (gender.toUpperCase() === 'F' || gender.toLowerCase() === 'femme');
@@ -70,53 +88,7 @@ let currentPlayerIsAdmin = false;
 let currentTrombiCategory = 'players';
 let currentYearFilter = 'all';
 let gameIsOver = false; // Partie terminée quand il reste 1 joueur ou moins
-
-// Sons de pet disponibles
-const petSounds = [
-    './client/sounds/pet1.mp3',
-    './client/sounds/pet2.mp3',
-    './client/sounds/pet3.mp3',
-    './client/sounds/pet4.mp3',
-    './client/sounds/pet5.mp3'
-];
-
-// Précharger les sons au démarrage pour éviter les délais
-const preloadedSounds = [];
-petSounds.forEach(soundPath => {
-    const audio = new Audio(soundPath);
-    audio.preload = 'auto';
-    preloadedSounds.push(audio);
-});
-
-// Index pour alterner les sons de manière circulaire
-let currentPetSoundIndex = 0;
-
-/**
- * Joue un son de pet en alternant de manière circulaire et ajoute une animation de vibration
- */
-function playRandomPetSound(event) {
-    const sound = preloadedSounds[currentPetSoundIndex].cloneNode();
-    sound.play().catch(e => console.log('Autoplay bloqué:', e));
-    // Passer au son suivant de manière circulaire
-    currentPetSoundIndex = (currentPetSoundIndex + 1) % petSounds.length;
-
-    // Déterminer la durée du son (en ms)
-    let duration = 500;
-    if (sound.duration && !isNaN(sound.duration) && sound.duration > 0) {
-        duration = Math.round(sound.duration * 1000);
-    } else {
-        // Si la durée n'est pas encore connue, attendre le chargement des métadonnées
-        sound.addEventListener('loadedmetadata', function onMeta() {
-            sound.removeEventListener('loadedmetadata', onMeta);
-            let metaDuration = sound.duration && !isNaN(sound.duration) && sound.duration > 0 ? Math.round(sound.duration * 1000) : 500;
-            applyShakeAnimation(event, metaDuration);
-        });
-        // Appliquer une vibration courte en attendant
-        applyShakeAnimation(event, duration);
-        return;
-    }
-    applyShakeAnimation(event, duration);
-}
+// [Supprimé] Ancienne logique de sons circulaires et préchargement
 
 function applyShakeAnimation(event, duration) {
     if (event && event.currentTarget) {
@@ -140,6 +112,60 @@ function applyShakeAnimation(event, duration) {
         }, duration);
     }
 }
+
+// Lecture d'un son spécifique et animation
+function playSoundAt(path, event) {
+    try {
+        const sound = new Audio(path);
+        sound.preload = 'auto';
+        sound.play().catch(e => console.log('Autoplay bloqué:', e));
+        let duration = 500;
+        if (sound.duration && !isNaN(sound.duration) && sound.duration > 0) {
+            duration = Math.round(sound.duration * 1000);
+        } else {
+            sound.addEventListener('loadedmetadata', function onMeta() {
+                sound.removeEventListener('loadedmetadata', onMeta);
+                const metaDuration = sound.duration && !isNaN(sound.duration) && sound.duration > 0 ? Math.round(sound.duration * 1000) : 500;
+                applyShakeAnimation(event, metaDuration);
+            });
+            applyShakeAnimation(event, duration);
+            return;
+        }
+        applyShakeAnimation(event, duration);
+    } catch (err) {
+        console.error('Erreur de lecture audio:', err);
+    }
+}
+
+// Lier les clics aux sons demandés
+function setupClickAudioBindings() {
+    if (emojiLeft) {
+        emojiLeft.addEventListener('click', (e) => playSoundAt('./client/sounds/pet1.mp3', e));
+    }
+    if (u56Logo) {
+        u56Logo.style.cursor = 'pointer';
+        u56Logo.addEventListener('click', (e) => playSoundAt('./client/sounds/pet2.mp3', e));
+    }
+    if (emojiRight) {
+        emojiRight.addEventListener('click', (e) => playSoundAt('./client/sounds/pet3.mp3', e));
+    }
+    if (killerLogo) {
+        killerLogo.style.cursor = 'pointer';
+        killerLogo.addEventListener('click', (e) => playSoundAt('./client/sounds/pet4.mp3', e));
+    }
+    if (kronnectionTitle) {
+        kronnectionTitle.addEventListener('click', (e) => playSoundAt('./client/sounds/pet_clic.mp3', e));
+        kronnectionTitle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                playSoundAt('./client/sounds/pet_clic.mp3', e);
+            }
+        });
+    }
+}
+
+// Appeler immédiatement (le script est chargé en bas de la page)
+setupClickAudioBindings();
 
 function getDriveImageUrl(fileId, size = 400) {
     if (!fileId || typeof fileId !== 'string') {
@@ -1390,19 +1416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Ajouter l'événement de clic sur le logo U56
-    const logo = document.querySelector('.logo');
-    if (logo) {
-        logo.addEventListener('click', playRandomPetSound);
-        logo.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
-    }
-
-    // Ajouter l'événement de clic sur le titre Killer
-    const titleImage = document.querySelector('.title-image');
-    if (titleImage) {
-        titleImage.addEventListener('click', playRandomPetSound);
-        titleImage.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
-    }
+    // [Supprimé] Anciens écouteurs playRandomPetSound sur .logo et .title-image (remplacés par bindings ciblés)
 
     // Configurer les boutons de catégorie du trombinoscope
     const categoryButtons = document.querySelectorAll('.trombi-category-btn');
@@ -1530,6 +1544,8 @@ function checkLoggedIn() {
  */
 function handleLogin(e) {
     e.preventDefault();
+    // Son au clic sur "Se krônnecter"
+    try { playSoundAt('./client/sounds/pet_clic.mp3', e); } catch (_) {}
     
     const nickname = document.getElementById('nickname').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -1891,12 +1907,15 @@ function closeKillNotification() {
  */
 function handleKilled(e) {
     e.preventDefault();
+    if (actionInFlight) return;
     
     // Confirmation avant de procéder
 
     if (!confirm(`t'es ${accord(currentPlayerGender, 'sûr', 'sûre')} de vouloir mourir ? après tu pourras plus jouer c'est triste en vrai (${accord(currentPlayerGender, 'gros fyot', 'grosse fyotte')})`)) {
         return;
     }
+    actionInFlight = true;
+    setActionButtonsDisabled(true);
     
     fetch('/api/killed', {
         method: 'POST',
@@ -1935,6 +1954,13 @@ function handleKilled(e) {
     .catch(error => {
         console.error('Erreur:', error);
         alert('Erreur de communication avec le serveur');
+    })
+    .finally(() => {
+        actionInFlight = false;
+        // En cas d'échec uniquement, on réactive; en succès, l'UI change d'état
+        if (!playerContainer.classList.contains('player-dead')) {
+            setActionButtonsDisabled(false);
+        }
     });
 }
 
@@ -1943,11 +1969,14 @@ function handleKilled(e) {
  */
 function handleGiveUp(e) {
     e.preventDefault();
+    if (actionInFlight) return;
     
     // Confirmation avant de procéder
     if (!confirm(`T'es ${accord(currentPlayerGender, 'sûr', 'sûre')} de vouloir quitter la str ? T'es ${accord(currentPlayerGender, 'le fyot', 'la fyotte')} que tu penses être si tu fais ça... à bon entendrrr`)) {
         return;
     }
+    actionInFlight = true;
+    setActionButtonsDisabled(true);
     
     fetch('/api/giveup', {
         method: 'POST',
@@ -1985,5 +2014,12 @@ function handleGiveUp(e) {
     .catch(error => {
         console.error('Erreur:', error);
         alert('Erreur de communication avec le serveur');
+    })
+    .finally(() => {
+        actionInFlight = false;
+        // En cas d'échec uniquement, on réactive; en succès, l'UI change d'état
+        if (!playerContainer.classList.contains('player-gave-up')) {
+            setActionButtonsDisabled(false);
+        }
     });
 }
