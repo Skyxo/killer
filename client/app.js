@@ -80,6 +80,14 @@ const petSounds = [
     './client/sounds/pet5.mp3'
 ];
 
+// Précharger les sons au démarrage pour éviter les délais
+const preloadedSounds = [];
+petSounds.forEach(soundPath => {
+    const audio = new Audio(soundPath);
+    audio.preload = 'auto';
+    preloadedSounds.push(audio);
+});
+
 // Index pour alterner les sons de manière circulaire
 let currentPetSoundIndex = 0;
 
@@ -87,8 +95,8 @@ let currentPetSoundIndex = 0;
  * Joue un son de pet en alternant de manière circulaire
  */
 function playRandomPetSound() {
-    const sound = new Audio(petSounds[currentPetSoundIndex]);
-    sound.play();
+    const sound = preloadedSounds[currentPetSoundIndex].cloneNode();
+    sound.play().catch(e => console.log('Autoplay bloqué:', e));
     // Passer au son suivant de manière circulaire
     currentPetSoundIndex = (currentPetSoundIndex + 1) % petSounds.length;
 }
@@ -759,7 +767,7 @@ function renderTrombiDetails(player) {
         
         // === JOUEUR MORT ===
         if (isDead) {
-            // 1. "s'est fait kill par [killer]"
+            // 1. "s'est fait kill par [killer]" + action du killer
             if (player.killed_by) {
                 const killedByInfoP = document.createElement('div');
                 killedByInfoP.classList.add('trombi-hunter-box', 'kill-info-box');
@@ -781,6 +789,14 @@ function renderTrombiDetails(player) {
                 });
                 killText.appendChild(killerLink);
                 killedByInfoP.appendChild(killText);
+                
+                // Ajouter l'action du killer s'il y en a une
+                if (player.killer_action) {
+                    const actionDiv = document.createElement('div');
+                    actionDiv.classList.add('action-text');
+                    actionDiv.textContent = `"${player.killer_action}"`;
+                    killedByInfoP.appendChild(actionDiv);
+                }
                 
                 trombiDetails.appendChild(killedByInfoP);
             }
@@ -975,10 +991,10 @@ function renderTrombiDetails(player) {
     if (player.person_photo) {
         const photo = document.createElement('img');
         photo.classList.add('trombi-photo');
-        photo.src = getDriveImageUrl(player.person_photo, 600);
+        photo.src = getDriveImageUrl(player.person_photo, 400);
         photo.alt = `Photo de ${displayName}`;
         photo.loading = 'lazy';
-        photo.addEventListener('click', () => openPhotoModal(photo.src));
+        photo.addEventListener('click', () => openPhotoModal(getDriveImageUrl(player.person_photo, 600)));
         
         // Détecter les erreurs de chargement (permissions Drive manquantes)
         photo.addEventListener('error', () => {
@@ -1278,7 +1294,7 @@ function renderLeaderboard(players, gameIsOver = false) {
             rankDisplay = rank;
         }
         
-        const photoUrl = getDriveImageUrl(player.person_photo, 500);
+        const photoUrl = getDriveImageUrl(player.person_photo, 300);
         
         entry.innerHTML = `
             <div class="leaderboard-rank${rankClass}">${rankDisplay}</div>

@@ -1161,6 +1161,16 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
                 hunter_action = p.get("action", "") or ""
                 break
     
+    # Si le joueur est mort, chercher l'action que son killer devait faire
+    killer_action = ""
+    if include_status and normalized_status in {"dead", "gaveup"} and player.get("killed_by"):
+        killed_by_name = (player.get("killed_by") or "").strip().lower()
+        if killed_by_name and all_players:
+            for p in all_players:
+                if (p.get("nickname") or "").strip().lower() == killed_by_name:
+                    killer_action = p.get("action", "") or ""
+                    break
+    
     return {
         "nickname": nickname,
         "gender": player.get("gender", "") or "",
@@ -1178,6 +1188,7 @@ def _trombi_entry(player: dict, viewer_nickname: Optional[str], include_status: 
         "hunter": hunter if include_status else "",
         "hunter_action": hunter_action if include_status else "",
         "killed_by": player.get("killed_by", "") or "" if include_status else "",
+        "killer_action": killer_action if include_status else "",
         "kill_count": player.get("kill_count", 0) if include_status else 0,
         "elimination_order": player.get("elimination_order", "") or "" if include_status else "",
         "password": player.get("password", "") or "" if include_status else "",
