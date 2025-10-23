@@ -13,7 +13,7 @@ echo -e "${BLUE}=== Script de déploiement consolidé pour Zomro ===${NC}"
 echo
 
 # Configuration
-ZOMRO_IP="188.137.176.245"
+ZOMRO_IP="188.137.182.53"
 ZOMRO_USER="root"
 SSH_KEY="~/.ssh/id_ed25519"  # Utilisation de la clé existante
 DEST_DIR="/var/www/killer"

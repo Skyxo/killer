@@ -92,13 +92,53 @@ petSounds.forEach(soundPath => {
 let currentPetSoundIndex = 0;
 
 /**
- * Joue un son de pet en alternant de manière circulaire
+ * Joue un son de pet en alternant de manière circulaire et ajoute une animation de vibration
  */
-function playRandomPetSound() {
+function playRandomPetSound(event) {
     const sound = preloadedSounds[currentPetSoundIndex].cloneNode();
     sound.play().catch(e => console.log('Autoplay bloqué:', e));
     // Passer au son suivant de manière circulaire
     currentPetSoundIndex = (currentPetSoundIndex + 1) % petSounds.length;
+
+    // Déterminer la durée du son (en ms)
+    let duration = 500;
+    if (sound.duration && !isNaN(sound.duration) && sound.duration > 0) {
+        duration = Math.round(sound.duration * 1000);
+    } else {
+        // Si la durée n'est pas encore connue, attendre le chargement des métadonnées
+        sound.addEventListener('loadedmetadata', function onMeta() {
+            sound.removeEventListener('loadedmetadata', onMeta);
+            let metaDuration = sound.duration && !isNaN(sound.duration) && sound.duration > 0 ? Math.round(sound.duration * 1000) : 500;
+            applyShakeAnimation(event, metaDuration);
+        });
+        // Appliquer une vibration courte en attendant
+        applyShakeAnimation(event, duration);
+        return;
+    }
+    applyShakeAnimation(event, duration);
+}
+
+function applyShakeAnimation(event, duration) {
+    if (event && event.currentTarget) {
+        const element = event.currentTarget;
+        element.classList.add('shake-animation');
+        element.style.animationDuration = (duration / 1000) + 's';
+        // Si c'est le logo U56, faire vibrer aussi le conteneur (avec la coulée de sang)
+        const logoContainer = element.closest('.logo-container');
+        if (logoContainer) {
+            logoContainer.classList.add('shake-animation');
+            logoContainer.style.animationDuration = (duration / 1000) + 's';
+        }
+        // Retirer la classe après la durée du son
+        setTimeout(() => {
+            element.classList.remove('shake-animation');
+            element.style.animationDuration = '';
+            if (logoContainer) {
+                logoContainer.classList.remove('shake-animation');
+                logoContainer.style.animationDuration = '';
+            }
+        }, duration);
+    }
 }
 
 function getDriveImageUrl(fileId, size = 400) {
@@ -1333,6 +1373,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logo) {
         logo.addEventListener('click', playRandomPetSound);
         logo.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
+    }
+
+    // Ajouter l'événement de clic sur le titre Killer
+    const titleImage = document.querySelector('.title-image');
+    if (titleImage) {
+        titleImage.addEventListener('click', playRandomPetSound);
+        titleImage.style.cursor = 'pointer'; // Changer le curseur pour indiquer que c'est cliquable
     }
 
     // Configurer les boutons de catégorie du trombinoscope
