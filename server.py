@@ -1,10 +1,15 @@
 import os
+import urllib.parse
 import socket
 import threading
 import time
 from typing import Optional
 from urllib import request as urllib_request
 from urllib.error import HTTPError, URLError
+import csv
+import io
+from PIL import Image
+import tempfile
 
 import gunicorn.app.base
 import warnings
@@ -119,6 +124,179 @@ print(f"SHEET_ID: {os.environ.get('SHEET_ID')}")
 # Contrôle de verbosité des logs ACTIONS_MAP
 ACTIONS_VERBOSE = _env_flag_is_true(os.environ.get("VERBOSE_ACTIONS_LOG"))
 
+# Fichiers CSV locaux
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CSV_PLAYERS_FILE = os.path.join(BASE_DIR, "data", "players.csv")
+CSV_DEFIS_FILE = os.path.join(BASE_DIR, "data", "defis.csv")
+IMAGES_DIR = os.path.join(BASE_DIR, "data", "images")
+
+# Auto-détection des exports Google Form si players.csv/defis.csv absents
+_data_dir = os.path.join(BASE_DIR, "data")
+if not os.path.exists(CSV_PLAYERS_FILE):
+    try:
+        for fname in os.listdir(_data_dir):
+            if fname.endswith(".csv") and ("Réponses au formulaire" in fname or fname == "formulaire.csv"):
+                if fname == "formulaire.csv":
+                    CSV_PLAYERS_FILE = os.path.join(_data_dir, fname)
+                    break
+                CSV_PLAYERS_FILE = os.path.join(_data_dir, fname)
+    except Exception:
+        pass
+if not os.path.exists(CSV_DEFIS_FILE):
+    try:
+        for fname in os.listdir(_data_dir):
+            if fname.endswith(".csv") and "defis" in fname.lower():
+                CSV_DEFIS_FILE = os.path.join(_data_dir, fname)
+                break
+    except Exception:
+        pass
+
+# Détection du dossier des fichiers uploadés
+# Schéma final: data/images/{tetes,pieds}
+UPLOADS_ROOT_DIR = os.path.join(_data_dir, "images")
+os.makedirs(os.path.join(UPLOADS_ROOT_DIR, "tetes"), exist_ok=True)
+os.makedirs(os.path.join(UPLOADS_ROOT_DIR, "pieds"), exist_ok=True)
+
+PHOTOS_LINKS_CSV = os.path.join(_data_dir, "photos_links.csv")
+
+# Créer les répertoires nécessaires
+os.makedirs(os.path.dirname(CSV_PLAYERS_FILE), exist_ok=True)
+os.makedirs(IMAGES_DIR, exist_ok=True)
+
+# Verrous pour l'accès aux CSV
+_csv_players_lock = threading.Lock()
+_csv_defis_lock = threading.Lock()
+
+# Cache pour mapping lien->nom de fichier drive
+_photos_link_to_name = None
+
+def _load_photos_links_map():
+    global _photos_link_to_name
+    if _photos_link_to_name is not None:
+        return _photos_link_to_name
+    mapping = {}
+    try:
+        if os.path.exists(PHOTOS_LINKS_CSV):
+            with open(PHOTOS_LINKS_CSV, 'r', encoding='utf-8', newline='') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    plink = (row.get('person_photo_link') or '').strip()
+                    pname = (row.get('person_photo_name') or '').strip()
+                    flink = (row.get('feet_photo_link') or '').strip()
+                    fname = (row.get('feet_photo_name') or '').strip()
+                    if plink and pname:
+                        mapping[plink] = pname
+                    if flink and fname:
+                        mapping[flink] = fname
+    except Exception:
+        mapping = {}
+    _photos_link_to_name = mapping
+    return mapping
+
+def _find_local_upload_by_basename(base_name: str, prefer_feet: bool) -> str:
+    if not UPLOADS_ROOT_DIR or not base_name:
+        return ""
+    name_wo_ext = os.path.splitext(base_name)[0]
+    # Normalisation simple pour comparaison tolérante
+    def _norm(s: str) -> str:
+        try:
+            return unicodedata.normalize("NFKC", s or "").casefold()
+        except Exception:
+            return (s or "").lower()
+    name_norm = _norm(name_wo_ext)
+    # Collect subdirs
+    subdirs = []
+    try:
+        for sub in os.listdir(UPLOADS_ROOT_DIR):
+            full = os.path.join(UPLOADS_ROOT_DIR, sub)
+            if os.path.isdir(full):
+                subdirs.append(sub)
+    except Exception:
+        return ""
+    # Prioritize subdirs by type
+    prioritized = []
+    for sub in subdirs:
+        low = sub.lower()
+        if prefer_feet and ("pieds" in low):
+            prioritized.insert(0, sub)
+        elif (not prefer_feet) and ("tetes" in low or "tête" in low or "tetes" in low or "neuillesque" in low or "jeu" in low):
+            prioritized.insert(0, sub)
+        else:
+            prioritized.append(sub)
+    # Search files
+    for sub in prioritized:
+        try:
+            for fname in os.listdir(os.path.join(UPLOADS_ROOT_DIR, sub)):
+                file_base = os.path.splitext(fname)[0]
+                if name_norm and (name_norm in _norm(file_base)):
+                    return f"{sub}/{fname}"
+        except Exception:
+            continue
+    return ""
+
+def _resolve_local_photo_url(original_link: str, prefer_feet: bool) -> str:
+    if not original_link:
+        return ""
+    mapping = _load_photos_links_map()
+    drive_name = mapping.get(original_link, "")
+    candidate_rel = _find_local_upload_by_basename(drive_name, prefer_feet)
+    if candidate_rel:
+        # Encoder l'URL pour gérer espaces/accents/parenthèses
+        return f"/uploads/{urllib.parse.quote(candidate_rel)}"
+    return ""
+
+# Helper: sanitize nickname to basename used by renaming
+def _sanitize_basename(nickname: str) -> str:
+    try:
+        s = unicodedata.normalize("NFKC", (nickname or "").strip())
+    except Exception:
+        s = (nickname or "").strip()
+    s = s.replace("/", "-").replace("\\", "-")
+    s = "_".join(s.split())
+    return s[:200]
+
+def _choose_uploads_subdir(prefer_feet: bool) -> str:
+    if not UPLOADS_ROOT_DIR:
+        return ""
+    try:
+        subdirs = [d for d in os.listdir(UPLOADS_ROOT_DIR) if os.path.isdir(os.path.join(UPLOADS_ROOT_DIR, d))]
+    except Exception:
+        subdirs = []
+    chosen = ""
+    for sub in subdirs:
+        low = sub.lower()
+        if prefer_feet and ("pieds" in low):
+            return sub
+        if (not prefer_feet) and ("tetes" in low or "tête" in low or "neuillesque" in low or "jeu" in low):
+            chosen = sub
+    if not chosen and subdirs:
+        chosen = subdirs[0]
+    return chosen
+
+def _expected_local_photo_url(nickname: str, prefer_feet: bool) -> str:
+    if not UPLOADS_ROOT_DIR:
+        return ""
+    base = _sanitize_basename(nickname)
+    filename = f"{base}_pieds.jpg" if prefer_feet else f"{base}.jpg"
+    sub = _choose_uploads_subdir(prefer_feet)
+    if not sub:
+        return ""
+    fpath = os.path.join(UPLOADS_ROOT_DIR, sub, filename)
+    if os.path.exists(fpath):
+        return f"/uploads/{urllib.parse.quote(sub + '/' + filename)}"
+    return ""
+
+# Helper to fetch CSV values by multiple possible keys
+def _get_csv_value(row: dict, keys: list) -> str:
+    for k in keys:
+        try:
+            v = row.get(k)
+        except Exception:
+            v = None
+        if v is not None and str(v).strip() != "":
+            return str(v).strip()
+    return ""
+
 app = Flask(__name__, static_folder='client')
 
 # Configuration des sessions
@@ -184,57 +362,135 @@ _actions_map_cache = None
 _actions_map_cache_timestamp = 0.0
 _actions_map_cache_ttl = 30.0  # 30 secondes pour réduire les appels API
 
-# Verrou global pour sérialiser les écritures critiques sur Google Sheets
-_sheet_write_lock = threading.Lock()
+# ========== FONCTIONS CSV LOCALES ==========
 
-# Helpers A1 et batch update avec retry exponentiel
-def _col_to_letter(col: int) -> str:
-    """Convertit un index de colonne (1-based) en lettre A1 (A, B, ..., AA, AB, ...)."""
-    col = int(col)
-    letters = ''
-    while col > 0:
-        col, remainder = divmod(col - 1, 26)
-        letters = chr(65 + remainder) + letters
-    return letters
+def read_csv_players():
+    """Lit le fichier CSV des joueurs et retourne une liste de dictionnaires"""
+    if not os.path.exists(CSV_PLAYERS_FILE):
+        return []
+    
+    with _csv_players_lock:
+        with open(CSV_PLAYERS_FILE, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            return list(reader)
 
-def _a1(row: int, col: int) -> str:
-    return f"{_col_to_letter(col)}{int(row)}"
+def write_csv_players(players_data):
+    """Écrit la liste de joueurs dans le fichier CSV"""
+    if not players_data:
+        return
+    
+    with _csv_players_lock:
+        with open(CSV_PLAYERS_FILE, 'w', encoding='utf-8', newline='') as f:
+            # Utiliser les clés du premier élément comme en-têtes
+            fieldnames = list(players_data[0].keys())
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(players_data)
 
-def _batch_update_with_retry(sheet, updates: list, retries: int = 3, initial_delay: float = 0.5):
-    """Exécute Worksheet.batch_update avec retry exponentiel.
-    updates: liste d'objets {'range': 'A1', 'values': [[value]]}
+def update_csv_player(row_index, updates):
+    """Met à jour un joueur spécifique dans le CSV (row_index est 1-based, 1=première ligne de données)"""
+    players = read_csv_players()
+    if 0 < row_index <= len(players):
+        for key, value in updates.items():
+            players[row_index - 1][key] = str(value)
+        write_csv_players(players)
+
+def update_csv_player_by_nickname(nickname, updates):
+    """Met à jour un joueur par son surnom dans le CSV"""
+    players = read_csv_players()
+    nickname_lower = nickname.lower()
+    
+    for i, player in enumerate(players):
+        player_nickname = player.get("Surnom (le VRAI, pour pouvoir vous identifier)", "").strip()
+        if _normalize_name(player_nickname) == _normalize_name(nickname):
+            for key, value in updates.items():
+                players[i][key] = str(value)
+            write_csv_players(players)
+            return True
+    return False
+
+def batch_update_csv_players(updates_list):
+    """Met à jour plusieurs joueurs en une seule opération
+    updates_list: liste de tuples (nickname, updates_dict)
     """
-    delay = initial_delay
-    last_err = None
-    for attempt in range(retries):
-        try:
-            # value_input_option RAW pour ne pas interpréter
-            return sheet.batch_update(updates, value_input_option='RAW')
-        except Exception as e:
-            last_err = e
-            if attempt == retries - 1:
-                raise
-            time.sleep(delay)
-            delay *= 2
-    if last_err:
-        raise last_err
-
-def _update_cells_with_retry(sheet, cell_updates: list, retries: int = 3, initial_delay: float = 0.3):
-    """Met à jour une liste de cellules avec retry exponentiel.
-    cell_updates: liste de tuples (row, col, value) avec indices 1-based pour col.
-    """
-    for (row, col, value) in cell_updates:
-        delay = initial_delay
-        for attempt in range(retries):
-            try:
-                sheet.update_cell(row, col, value)
+    players = read_csv_players()
+    
+    for nickname, updates in updates_list:
+        for i, player in enumerate(players):
+            player_nickname = player.get("Surnom (le VRAI, pour pouvoir vous identifier)", "").strip()
+            if _normalize_name(player_nickname) == _normalize_name(nickname):
+                for key, value in updates.items():
+                    players[i][key] = str(value)
                 break
-            except Exception as e:
-                if attempt == retries - 1:
-                    raise
-                time.sleep(delay)
-                delay *= 2
+    
+    write_csv_players(players)
 
+def read_csv_defis():
+    """Lit le fichier CSV des défis et retourne un dictionnaire {nickname_lower: action}"""
+    if not os.path.exists(CSV_DEFIS_FILE):
+        return {}
+    
+    with _csv_defis_lock:
+        with open(CSV_DEFIS_FILE, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            actions_map = {}
+            for row in reader:
+                nickname = (row.get('Surnom') or '').strip()
+                action = (row.get('Défi ciblé') or '').strip()
+                if nickname:
+                    actions_map[nickname.lower()] = action
+            return actions_map
+
+def write_csv_defis(actions_map):
+    """Écrit le mapping des défis dans le fichier CSV"""
+    with _csv_defis_lock:
+        with open(CSV_DEFIS_FILE, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=['Surnom', 'Défi ciblé'])
+            writer.writeheader()
+            for nickname, action in actions_map.items():
+                writer.writerow({'Surnom': nickname, 'Défi ciblé': action})
+
+def download_and_compress_image(drive_id, nickname):
+    """Télécharge une image depuis Google Drive et la compresse"""
+    if not drive_id:
+        return None
+    
+    try:
+        # URL de téléchargement Google Drive
+        url = f"https://drive.google.com/uc?export=download&id={drive_id}"
+        
+        # Télécharger l'image
+        response = requests.get(url, timeout=30)
+        if response.status_code != 200:
+            print(f"Erreur lors du téléchargement de l'image {drive_id}: {response.status_code}")
+            return None
+        
+        # Ouvrir l'image avec PIL
+        img = Image.open(io.BytesIO(response.content))
+        
+        # Convertir en RGB si nécessaire
+        if img.mode in ('RGBA', 'LA', 'P'):
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+            img = background
+        
+        # Redimensionner l'image (max 800x800)
+        max_size = 800
+        if img.width > max_size or img.height > max_size:
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        # Sauvegarder l'image compressée
+        filename = f"{nickname}_{drive_id}.jpg"
+        filepath = os.path.join(IMAGES_DIR, filename)
+        img.save(filepath, 'JPEG', quality=85, optimize=True)
+        
+        return filename
+    
+    except Exception as e:
+        print(f"Erreur lors de la compression de l'image {drive_id}: {e}")
+        return None
 
 class AuthorizedSessionWithTimeout(AuthorizedSession):
     """Session autorisée Google avec timeout par défaut."""
@@ -426,62 +682,19 @@ def require_sheet_client():
 
 
 def get_actions_map():
-    """Lit la feuille 2 et retourne un dict {nickname_lower: action_str}."""
+    """Lit le CSV des défis et retourne un dict {nickname_lower: action_str}. (CSV uniquement)"""
     cache_ttl = _actions_map_cache_ttl
     cached = _get_cached_actions_map(cache_ttl)
     if cached is not None:
         return cached
 
-    # Accès au classeur puis à la deuxième feuille
-    sheet = get_sheet_client()
-    if sheet is None:
-        return {}
-    try:
-        workbook = sheet.spreadsheet
-        # Chercher la feuille "defis" par nom
-        try:
-            actions_ws = workbook.worksheet("defis")
-        except Exception:
-            # Fallback sur la 2e feuille par index
-            worksheets = workbook.worksheets()
-            if len(worksheets) < 2:
-                if ACTIONS_VERBOSE:
-                    print("[ACTIONS_MAP] Aucune feuille 'defis' trouvée et moins de 2 feuilles")
-                _store_actions_map_in_cache({})
-                return {}
-            actions_ws = worksheets[1]
-            if ACTIONS_VERBOSE:
-                print(f"[ACTIONS_MAP] Utilisation de la feuille par index: {actions_ws.title}")
-        
-        values = actions_ws.get_all_values()
-        if ACTIONS_VERBOSE:
-            print(f"[ACTIONS_MAP] Feuille '{actions_ws.title}' - {len(values)} lignes")
-        actions_map = {}
-        # Attendu: en-têtes ["Surnom", "Défi ciblé"]
-        for row in values[1:]:
-            if not row:
-                continue
-            nickname = (row[0] or "").strip()
-            if not nickname:
-                continue
-            action = (row[1] if len(row) > 1 else "").strip()
-            actions_map[nickname.lower()] = action
-            # Log seulement si verbosité activée
-            if ACTIONS_VERBOSE and action and action != "...":
-                print(f"[ACTIONS_MAP] Mapping: '{nickname}' -> '{action}'")
-        
-        if ACTIONS_VERBOSE:
-            print(f"[ACTIONS_MAP] Total mappings: {len(actions_map)}")
-        _store_actions_map_in_cache(actions_map)
-        return actions_map
-    except Exception:
-        # En cas d'erreur on renvoie un mapping vide pour ne pas casser l'app
-        import traceback
-        if ACTIONS_VERBOSE:
-            print(f"[ACTIONS_MAP] Erreur lors de la lecture: {traceback.format_exc()}")
-        else:
-            print("[ACTIONS_MAP] Erreur lors de la lecture (voir logs détaillés si VERBOSE_ACTIONS_LOG=1)")
-        return {}
+    actions_map = read_csv_defis() or {}
+
+    if ACTIONS_VERBOSE:
+        print(f"[ACTIONS_MAP] Total mappings depuis CSV: {len(actions_map)}")
+
+    _store_actions_map_in_cache(actions_map)
+    return actions_map
 
 
 def get_action_for_target(target_nickname: Optional[str]) -> str:
@@ -493,88 +706,16 @@ def get_action_for_target(target_nickname: Optional[str]) -> str:
     return actions.get((target_nickname or "").strip().lower(), "")
 
 
-# Fonction pour initialiser la colonne "État" si elle n'existe pas
-def initialize_status_column():
-    try:
-        sheet = require_sheet_client()
-        headers = sheet.row_values(1)
-        
-        # Vérifier si les colonnes nécessaires existent déjà
-        # Initialisation des colonnes manquantes
-        if len(headers) <= SHEET_COLUMNS["CURRENT_TARGET"]:
-            sheet.update_cell(1, SHEET_COLUMNS["CURRENT_TARGET"] + 1, "Cible actuelle")
-            
-        if len(headers) <= SHEET_COLUMNS["STATUS"]:
-            sheet.update_cell(1, SHEET_COLUMNS["STATUS"] + 1, "État")
-
-        if len(headers) <= SHEET_COLUMNS["ADMIN_FLAG"]:
-            sheet.update_cell(1, SHEET_COLUMNS["ADMIN_FLAG"] + 1, "Admin")
-        
-        # Vérifier si les données des joueurs doivent être initialisées
-        data = sheet.get_all_values()
-        for i in range(1, len(data)):  # Commencer à la deuxième ligne (après les en-têtes)
-            row = data[i]
-            
-            # Initialiser la cible actuelle si elle est vide (plus de colonnes initiales)
-            # On ne peut plus copier depuis une colonne initiale supprimée.
-            
-            # Initialiser l'état si vide
-            if len(row) <= SHEET_COLUMNS["STATUS"] or not row[SHEET_COLUMNS["STATUS"]]:
-                sheet.update_cell(i + 1, SHEET_COLUMNS["STATUS"] + 1, "alive")
-
-            if len(row) <= SHEET_COLUMNS["ADMIN_FLAG"] or not str(row[SHEET_COLUMNS["ADMIN_FLAG"]]).strip():
-                sheet.update_cell(i + 1, SHEET_COLUMNS["ADMIN_FLAG"] + 1, "False")
-        
-        print("Colonnes et états initialisés avec succès")
-            
-    except ValueError as e:
-        print(f"AVERTISSEMENT: Erreur lors de l'initialisation de la colonne État: {e}")
-        print("Le serveur continue de démarrer malgré cette erreur.")
-    except Exception as e:
-        print(f"AVERTISSEMENT: Erreur lors de l'initialisation de la colonne État: {e}")
-        print("Le serveur continue de démarrer malgré cette erreur.")
-
-# Appeler l'initialisation au démarrage (désactivé pour éviter les problèmes de connexion)
-# initialize_status_column()
-
 # Fonction auxiliaire pour obtenir les données d'un joueur par son surnom
 def get_player_by_nickname(nickname):
-    sheet = require_sheet_client()
-    data = sheet.get_all_values()
+    # Utiliser get_all_players qui a le fallback CSV
+    all_players = get_all_players()
 
     target_nickname = _normalize_name(nickname)
 
-    # Ignorer la ligne d'en-tête
-    for i, row in enumerate(data[1:], 2):
-        if len(row) <= SHEET_COLUMNS["NICKNAME"]:
-            continue
-
-        sheet_nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
-        sheet_nickname = sheet_nickname_raw.strip()
-
-        # Comparaison insensible à la casse pour le surnom
-        if _normalize_name(sheet_nickname) == target_nickname:
-            password = row[SHEET_COLUMNS["PASSWORD"]] if len(row) > SHEET_COLUMNS["PASSWORD"] else ""
-            status_value = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
-            admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
-
-            player = {
-                "row": i,
-                "nickname": sheet_nickname,
-                "gender": (row[SHEET_COLUMNS["GENDER"]] or "").strip() if len(row) > SHEET_COLUMNS["GENDER"] else "",
-                "password": password.strip() if isinstance(password, str) else password,
-                "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
-                "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
-                "kro_answer": (row[SHEET_COLUMNS["KRO_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
-                "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
-                "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
-                "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-                "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
-                # action désormais dérivée de la feuille 2
-                "action": get_action_for_target((row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else ""),
-                "status": _normalize_status(status_value),
-                "is_admin": _parse_admin_flag(admin_flag_value),
-            }
+    # Chercher le joueur dans la liste
+    for player in all_players:
+        if _normalize_name(player.get("nickname", "")) == target_nickname:
             return player
 
     return None
@@ -649,6 +790,25 @@ def index():
 @app.route("/favicon.ico")
 def favicon():
     return send_from_directory('client', 'img/Killer.png', mimetype='image/png')
+
+@app.route("/images/<path:filename>")
+def serve_image(filename):
+    """Sert les images compressées depuis le répertoire local"""
+    return send_from_directory(IMAGES_DIR, filename)
+
+@app.route("/uploads/<path:filename>")
+def serve_uploads(filename):
+    """Sert les fichiers issus des 'File responses' (si présents)."""
+    if not UPLOADS_ROOT_DIR:
+        return jsonify({"success": False, "message": "Uploads non configurés"}), 404
+    # Décoder l'URL pour gérer les accents/espaces
+    decoded = urllib.parse.unquote(filename)
+    response = send_from_directory(UPLOADS_ROOT_DIR, decoded)
+    # Ajouter headers anti-cache pour éviter les problèmes de cache navigateur
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route("/<path:path>")
 def static_files(path):
@@ -736,9 +896,10 @@ def login():
             next_target = find_next_alive_target(player["target"], None, all_players)
             
             if next_target:
-                # Mettre à jour la cible dans la feuille
-                sheet = require_sheet_client()
-                sheet.update_cell(player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
+                # Mettre à jour la cible dans le CSV
+                update_csv_player_by_nickname(player["nickname"], {
+                    "Cible actuelle": next_target["nickname"]
+                })
                 
                 # Mettre à jour l'info du joueur
                 player["target"] = next_target["nickname"]
@@ -805,12 +966,11 @@ def get_me():
         if target and target["status"].lower() == "dead":
             next_target = find_next_alive_target(player["target"])
             if next_target:
-                # Mettre à jour la cible dans la feuille avec verrou + retry
-                sheet = require_sheet_client()
-                with _sheet_write_lock:
-                    _update_cells_with_retry(sheet, [
-                        (player["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target["nickname"])
-                    ])
+                # Mettre à jour la cible dans le CSV avec verrou
+                with _csv_players_lock:
+                    update_csv_player_by_nickname(player["nickname"], {
+                        "Cible actuelle": next_target["nickname"]
+                    })
                 # Mettre à jour l'info du joueur en mémoire
                 player["target"] = next_target["nickname"]
                 player["action"] = get_action_for_target(next_target["nickname"])            
@@ -857,7 +1017,6 @@ def kill():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
     try:
-        sheet = require_sheet_client()
         # Récupérer le joueur (killer)
         killer = get_player_by_nickname(session["nickname"])
         
@@ -894,21 +1053,28 @@ def kill():
                 next_target_nickname = ""
                 next_target_action = ""
         
-        # Écritures atomisées avec verrou local + retry
-        with _sheet_write_lock:
+        # Écritures dans le CSV avec verrou
+        with _csv_players_lock:
             # Recharger pour réduire les races
+            invalidate_players_cache()
             killer_now = get_player_by_nickname(session["nickname"]) or killer
             victim_now = get_player_by_nickname(victim["nickname"]) or victim
             if victim_now and str(victim_now.get("status", "")).lower() == "dead":
                 return jsonify({"success": False, "message": "Cette cible est déjà morte"}), 409
 
             killer_kills = killer_now.get("kill_count", 0)
-            _update_cells_with_retry(sheet, [
-                (killer_now["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(killer_kills + 1)),
-                (killer_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname or ""),
-                (victim_now["row"], SHEET_COLUMNS["STATUS"] + 1, "dead"),
-                (victim_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, ""),
-                (victim_now["row"], SHEET_COLUMNS["KILLED_BY"] + 1, killer_now.get("nickname", "")),
+            
+            # Mise à jour batch des deux joueurs
+            batch_update_csv_players([
+                (killer_now["nickname"], {
+                    "Nombre de kills": str(killer_kills + 1),
+                    "Cible actuelle": next_target_nickname or ""
+                }),
+                (victim_now["nickname"], {
+                    "État": "dead",
+                    "Cible actuelle": "",
+                    "Tué par (surnom du killer)": killer_now.get("nickname", "")
+                })
             ])
 
         # Invalider le cache joueurs pour diffuser les changements
@@ -937,6 +1103,8 @@ def kill():
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors du kill: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur lors du kill: {str(e)}"}), 500
 
 @app.route("/api/killed", methods=["POST"])
@@ -944,7 +1112,6 @@ def killed():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
     try:
-        sheet = require_sheet_client()
         # Récupérer le joueur qui déclare avoir été tué
         player = get_player_by_nickname(session["nickname"])
         
@@ -962,9 +1129,10 @@ def killed():
         
         print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actifs actuels: {dead_active_count})")
         
-        # Écritures atomisées avec verrou local + retry
-        with _sheet_write_lock:
+        # Écritures dans le CSV avec verrou
+        with _csv_players_lock:
             # Relecture actuelle
+            invalidate_players_cache()
             me_now = get_player_by_nickname(session["nickname"]) or player
             if str(me_now.get("status", "")).lower() == "dead":
                 return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 409
@@ -977,25 +1145,26 @@ def killed():
                     assassin = p
                     break
 
-            cell_updates = [
-                (me_now["row"], SHEET_COLUMNS["STATUS"] + 1, "dead"),
-                (me_now["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order)),
+            updates_list = [
+                (me_now["nickname"], {
+                    "État": "dead",
+                    "Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)": str(elimination_order)
+                })
             ]
+            
             if assassin:
                 new_target = me_now.get("target") or ""
                 assassin_kills = assassin.get("kill_count", 0)
-                cell_updates.extend([
-                    (assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, new_target),
-                    (assassin["row"], SHEET_COLUMNS["KILL_COUNT"] + 1, str(assassin_kills + 1)),
-                    (me_now["row"], SHEET_COLUMNS["KILLED_BY"] + 1, assassin.get("nickname", "")),
-                ])
-            _update_cells_with_retry(sheet, cell_updates)
+                updates_list.append((assassin["nickname"], {
+                    "Cible actuelle": new_target,
+                    "Nombre de kills": str(assassin_kills + 1)
+                }))
+                updates_list[0][1]["Tué par (surnom du killer)"] = assassin.get("nickname", "")
+            
+            batch_update_csv_players(updates_list)
 
         # Invalider le cache pour forcer le rechargement
         invalidate_players_cache()
-        
-        # 3. Garder la cible du joueur mort (ne pas vider les champs)
-        # (on ne touche pas à l'action car elle n'existe plus dans la feuille 1)
         
         return jsonify({
             "success": True,
@@ -1005,6 +1174,8 @@ def killed():
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors de la déclaration de mort: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur lors de la déclaration: {str(e)}"}), 500
 
 @app.route("/api/giveup", methods=["POST"])
@@ -1012,7 +1183,6 @@ def give_up():
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
     try:
-        sheet = require_sheet_client()
         # Récupérer le joueur qui abandonne
         player = get_player_by_nickname(session["nickname"])
 
@@ -1022,7 +1192,8 @@ def give_up():
         if (player.get("status") or "").lower() == "dead":
             return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 400
 
-        with _sheet_write_lock:
+        with _csv_players_lock:
+            invalidate_players_cache()
             me_now = get_player_by_nickname(session["nickname"]) or player
             if str(me_now.get("status", "")).lower() == "dead":
                 return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 409
@@ -1032,12 +1203,15 @@ def give_up():
             max_order = max(existing_orders) if existing_orders else 0
             elimination_order = max_order + 1
 
-            cell_updates = [
-                (me_now["row"], SHEET_COLUMNS["STATUS"] + 1, "gaveup"),
-                (me_now["row"], SHEET_COLUMNS["ELIMINATION_ORDER"] + 1, str(elimination_order)),
+            updates_list = [
+                (me_now["nickname"], {
+                    "État": "gaveup",
+                    "Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)": str(elimination_order),
+                    "Cible actuelle": ""
+                })
             ]
 
-            # 2. Si le joueur a une cible, il faut la réaffecter à son assassin (sans incrémenter ses kills)
+            # Si le joueur a une cible, il faut la réaffecter à son assassin (sans incrémenter ses kills)
             if me_now.get("target"):
                 assassin = None
                 for p in all_players:
@@ -1057,12 +1231,11 @@ def give_up():
                         else:
                             next_target_nickname = ""
                     
-                    cell_updates.append((assassin["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, next_target_nickname))
+                    updates_list.append((assassin["nickname"], {
+                        "Cible actuelle": next_target_nickname
+                    }))
 
-            # 3. Vider la cible actuelle du joueur qui abandonne
-            cell_updates.append((me_now["row"], SHEET_COLUMNS["CURRENT_TARGET"] + 1, ""))
-
-            _update_cells_with_retry(sheet, cell_updates)
+            batch_update_csv_players(updates_list)
 
         # Invalider le cache pour forcer le rechargement
         invalidate_players_cache()
@@ -1075,6 +1248,8 @@ def give_up():
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors de l'abandon: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur lors de l'abandon: {str(e)}"}), 500
 
 
@@ -1248,7 +1423,7 @@ def get_kills_podium():
 
 # Fonction utilitaire pour récupérer tous les joueurs
 def get_all_players():
-    """Récupère tous les joueurs avec un cache de 5 secondes"""
+    """Récupère tous les joueurs depuis le CSV local avec un cache de 5 secondes (CSV uniquement)."""
     global _players_cache, _players_cache_timestamp
     
     # Vérifier le cache
@@ -1257,70 +1432,51 @@ def get_all_players():
         if _players_cache is not None and (now - _players_cache_timestamp) < _players_cache_ttl:
             return _players_cache
     
-    try:
-        sheet = require_sheet_client()
-        data = sheet.get_all_values()
-    except Exception as e:
-        print(f"[GET_ALL_PLAYERS] Erreur accès sheet: {e}")
-        raise ConnectionError(f"Impossible d'accéder au Google Sheet: {str(e)}")
-    
+    # Lire depuis le CSV local
+    csv_data = read_csv_players() or []
+
+    # Parser les données du CSV
     players = []
-    # Ignorer la ligne d'en-tête
-    for i, row in enumerate(data[1:], 2):
+    for i, player_dict in enumerate(csv_data, 1):
         try:
-            if len(row) <= SHEET_COLUMNS["NICKNAME"]:
-                continue  # Ignorer les lignes incomplètes
-
-            nickname_raw = row[SHEET_COLUMNS["NICKNAME"]] or ""
-            nickname = (nickname_raw or "").strip()
-
-            # Ignorer les lignes sans surnom valide
+            nickname = player_dict.get("Surnom (le VRAI, pour pouvoir vous identifier)", "").strip()
             if not nickname:
                 continue
 
-            status_raw = row[SHEET_COLUMNS["STATUS"]] if len(row) > SHEET_COLUMNS["STATUS"] else "alive"
-            status = _normalize_status(status_raw)
-            admin_flag_value = row[SHEET_COLUMNS["ADMIN_FLAG"]] if len(row) > SHEET_COLUMNS["ADMIN_FLAG"] else "False"
-
-            year_raw = (row[SHEET_COLUMNS["YEAR"]] or "").strip() if len(row) > SHEET_COLUMNS["YEAR"] else ""
-            year = year_raw.upper() if year_raw else ""
-
-            gender = (row[SHEET_COLUMNS["GENDER"]] or "").strip() if len(row) > SHEET_COLUMNS["GENDER"] else ""
-            phone = (row[SHEET_COLUMNS["PHONE"]] or "").strip() if len(row) > SHEET_COLUMNS["PHONE"] else ""
-            killed_by = (row[SHEET_COLUMNS["KILLED_BY"]] or "").strip() if len(row) > SHEET_COLUMNS["KILLED_BY"] else ""
-
-            elimination_order = (row[SHEET_COLUMNS["ELIMINATION_ORDER"]] or "").strip() if len(row) > SHEET_COLUMNS["ELIMINATION_ORDER"] else ""
-
-            kill_count_raw = (row[SHEET_COLUMNS["KILL_COUNT"]] or "").strip() if len(row) > SHEET_COLUMNS["KILL_COUNT"] else "0"
-            kill_count = _parse_int(kill_count_raw, 0)
+            # Avec la normalisation que tu as faite, on privilégie l'attendu strict
+            person_local = _expected_local_photo_url(nickname, prefer_feet=False)
+            feet_local = _expected_local_photo_url(nickname, prefer_feet=True)
+            
+            players.append({
+                "row": i,
+                "nickname": nickname,
+                "gender": player_dict.get("Sexe (H/F)", "").strip(),
+                "year": player_dict.get("Année (0A, 2A, 3A, etc.)", "").strip().upper(),
+                "password": _get_csv_value(player_dict, [
+                    "Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)",
+                    "Votre mot de passe",
+                    "Mot de passe",
+                ]),
+                "person_photo": person_local,
+                "feet_photo": feet_local,
+                "kro_answer": player_dict.get("Combien y a t il de cars dans une kro ?", "").strip(),
+                "before_answer": player_dict.get("Est-ce que c'était mieux avant ?", "").strip(),
+                "message": player_dict.get("Un petit mot pour vos brasseurs adorés", "").strip(),
+                "challenge_ideas": player_dict.get("Idées de défis", "").strip(),
+                "target": player_dict.get("Cible actuelle", "").strip(),
+                "action": get_action_for_target(player_dict.get("Cible actuelle", "").strip()),
+                "status": _normalize_status(player_dict.get("État", "alive")),
+                "killed_by": player_dict.get("Tué par (surnom du killer)", "").strip(),
+                "is_admin": _parse_admin_flag(player_dict.get("Admin", "False")),
+                "phone": player_dict.get("Téléphone", "").strip(),
+                "elimination_order": player_dict.get("Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)", "").strip(),
+                "kill_count": _parse_int(player_dict.get("Nombre de kills", "0"), 0),
+            })
         except Exception as e:
-            print(f"[GET_ALL_PLAYERS] Erreur parsing ligne {i} ({nickname_raw if 'nickname_raw' in locals() else '?'}): {e}")
+            print(f"[GET_ALL_PLAYERS] Erreur parsing joueur {i}: {e}")
             import traceback
             traceback.print_exc()
             continue
-
-        players.append({
-            "row": i,
-            "nickname": nickname,
-            "gender": gender,
-            "year": year,
-            "password": (row[SHEET_COLUMNS["PASSWORD"]] or "").strip() if len(row) > SHEET_COLUMNS["PASSWORD"] else "",
-            "person_photo": extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else "",
-            "feet_photo": extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else "",
-            "kro_answer": (row[SHEET_COLUMNS["KRO_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["KRO_ANSWER"] else "",
-            "before_answer": (row[SHEET_COLUMNS["BEFORE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["BEFORE_ANSWER"] else "",
-            "message": (row[SHEET_COLUMNS["MESSAGE_ANSWER"]] or "").strip() if len(row) > SHEET_COLUMNS["MESSAGE_ANSWER"] else "",
-            "challenge_ideas": (row[SHEET_COLUMNS["CHALLENGE_IDEAS"]] or "").strip() if len(row) > SHEET_COLUMNS["CHALLENGE_IDEAS"] else "",
-            "target": (row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else "",
-            # action désormais dérivée de la feuille 2
-            "action": get_action_for_target((row[SHEET_COLUMNS["CURRENT_TARGET"]] or "").strip() if len(row) > SHEET_COLUMNS["CURRENT_TARGET"] else ""),
-            "status": status,
-            "killed_by": killed_by,
-            "is_admin": _parse_admin_flag(admin_flag_value),
-            "phone": phone,
-            "elimination_order": elimination_order,
-            "kill_count": kill_count,
-        })
 
     # Mettre en cache les résultats
     with _sheet_cache_lock:
@@ -1506,6 +1662,143 @@ def logout():
     session.clear()
     return jsonify({"success": True, "message": "Déconnecté avec succès"})
 
+@app.route("/api/admin/sync", methods=["POST"])
+def admin_sync():
+    """Synchronise les données depuis Google Sheets vers les CSV locaux"""
+    if "nickname" not in session:
+        return jsonify({"success": False, "message": "Non connecté"}), 401
+
+    try:
+        current_player = get_player_by_nickname(session["nickname"])
+    except ConnectionError as e:
+        return jsonify({"success": False, "message": str(e)}), 503
+
+    if not current_player:
+        return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+
+    if not current_player.get("is_admin"):
+        return jsonify({"success": False, "message": "Accès refusé - Administrateur requis"}), 403
+
+    try:
+        sheet = require_sheet_client()
+        workbook = sheet.spreadsheet
+        
+        print("[SYNC] Début de la synchronisation...")
+        
+        # 1. Synchroniser la feuille principale (joueurs)
+        print("[SYNC] Téléchargement de la feuille joueurs...")
+        data = sheet.get_all_values()
+        
+        if not data:
+            return jsonify({"success": False, "message": "Aucune donnée dans la feuille"}), 500
+        
+        headers = data[0]
+        players_data = []
+        images_downloaded = 0
+        images_failed = 0
+        
+        for i, row in enumerate(data[1:], 2):
+            if len(row) <= SHEET_COLUMNS["NICKNAME"]:
+                continue
+            
+            nickname = (row[SHEET_COLUMNS["NICKNAME"]] or "").strip()
+            if not nickname:
+                continue
+            
+            # Créer un dictionnaire pour ce joueur
+            player_dict = {}
+            for j, header in enumerate(headers):
+                player_dict[header] = row[j] if j < len(row) else ""
+            
+            # Télécharger et compresser les images
+            person_photo_id = extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else ""
+            feet_photo_id = extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else ""
+            
+            if person_photo_id:
+                print(f"[SYNC] Téléchargement image personne pour {nickname}...")
+                filename = download_and_compress_image(person_photo_id, f"{nickname}_person")
+                if filename:
+                    player_dict[headers[SHEET_COLUMNS["PERSON_PHOTO"]]] = filename
+                    images_downloaded += 1
+                else:
+                    images_failed += 1
+            
+            if feet_photo_id:
+                print(f"[SYNC] Téléchargement image pieds pour {nickname}...")
+                filename = download_and_compress_image(feet_photo_id, f"{nickname}_feet")
+                if filename:
+                    player_dict[headers[SHEET_COLUMNS["FEET_PHOTO"]]] = filename
+                    images_downloaded += 1
+                else:
+                    images_failed += 1
+            
+            players_data.append(player_dict)
+        
+        # Écrire les données joueurs dans le CSV
+        write_csv_players(players_data)
+        print(f"[SYNC] {len(players_data)} joueurs synchronisés")
+        
+        # 2. Synchroniser la feuille des défis
+        print("[SYNC] Téléchargement de la feuille défis...")
+        try:
+            defis_ws = workbook.worksheet("defis")
+        except Exception:
+            # Fallback sur la 2e feuille par index
+            worksheets = workbook.worksheets()
+            if len(worksheets) >= 2:
+                defis_ws = worksheets[1]
+            else:
+                print("[SYNC] Aucune feuille défis trouvée, création d'un mapping vide")
+                defis_ws = None
+        
+        if defis_ws:
+            defis_data = defis_ws.get_all_values()
+            actions_map = {}
+            
+            for row in defis_data[1:]:  # Ignorer l'en-tête
+                if not row:
+                    continue
+                nickname = (row[0] or "").strip()
+                action = (row[1] if len(row) > 1 else "").strip()
+                if nickname:
+                    actions_map[nickname] = action
+            
+            # Écrire le CSV des défis
+            with _csv_defis_lock:
+                with open(CSV_DEFIS_FILE, 'w', encoding='utf-8', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=['Surnom', 'Défi ciblé'])
+                    writer.writeheader()
+                    for nickname, action in actions_map.items():
+                        writer.writerow({'Surnom': nickname, 'Défi ciblé': action})
+            
+            print(f"[SYNC] {len(actions_map)} défis synchronisés")
+        
+        # Invalider les caches pour forcer le rechargement
+        invalidate_players_cache()
+        global _actions_map_cache, _actions_map_cache_timestamp
+        with _sheet_cache_lock:
+            _actions_map_cache = None
+            _actions_map_cache_timestamp = 0.0
+        
+        print("[SYNC] Synchronisation terminée!")
+        
+        return jsonify({
+            "success": True,
+            "message": "Synchronisation réussie",
+            "stats": {
+                "players": len(players_data),
+                "defis": len(actions_map) if defis_ws else 0,
+                "images_downloaded": images_downloaded,
+                "images_failed": images_failed
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"[SYNC] Erreur: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Erreur lors de la synchronisation: {str(e)}"}), 500
+
 @app.route("/api/debug", methods=["GET"])
 def debug():
     # Endpoint de débogage - à commenter ou protéger en production
@@ -1583,7 +1876,7 @@ def _build_gunicorn_options() -> dict:
     keepalive = _coerce_positive_int(os.environ.get("GUNICORN_KEEPALIVE"), 5)
     
     # Worker class: gevent pour async (meilleur pour I/O), sync par défaut
-    worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gevent")
+    worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "sync")
     # Nombre de connexions simultanées par worker gevent
     worker_connections = _coerce_positive_int(os.environ.get("GUNICORN_WORKER_CONNECTIONS"), 1000)
 
@@ -1600,8 +1893,8 @@ def _build_gunicorn_options() -> dict:
         "errorlog": os.environ.get("GUNICORN_ERROR_LOG", "-"),
         "loglevel": os.environ.get("GUNICORN_LOGLEVEL", "info"),
         "worker_tmp_dir": os.environ.get("GUNICORN_WORKER_TMP_DIR"),
-        # Précharger l'app pour économiser la mémoire
-        "preload_app": True,
+        # Précharger l'app désactivé pour éviter les problèmes avec Google Sheets
+        "preload_app": False,
     }
 
 

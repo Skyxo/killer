@@ -1,0 +1,1295 @@
+{
+  "summary": {
+    "processed": 80,
+    "renamed": 95,
+    "skipped": 65,
+    "reasons": {
+      "not_found": 48,
+      "already_ok": 13,
+      "convert_failed": 3,
+      "dest_exists": 1
+    }
+  },
+  "events": [
+    {
+      "nickname": "Astro",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Astro.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Astro",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Astro_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Nyhllö",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/Yyhllö.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Nyhllö.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Nyhllö",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Nyhllö_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Pétooh",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/petooh.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Pétooh.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Pétooh",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Pétooh_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Shao",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/380a95ad2a2eacc8be5d5d1ecb03317f - Emile Vasseur.JPEG",
+      "dest": "/home/charl/killer/data/photos/tetes/Shao.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Shao",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/P1080696 - Emile Vasseur.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Shao_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Tisso",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_20250517_171111 - Augustin Eydoux.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Tisso.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Tisso",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Tisso_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Kdo",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/87dbea562ffd38a3b6c02c2e974b6c27 - Nathan Mabilais.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Kdo.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kdo",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_3856 - Nathan Mabilais.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Kdo_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lin'ky",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/photo neuillesque - Lin’ky.JPG",
+      "dest": "/home/charl/killer/data/photos/tetes/Lin'ky.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lin'ky",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/pieds - Lin’ky.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Lin'ky_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Pi'ky",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_20241202_003938_570 - Dune COMBET.webp",
+      "dest": "/home/charl/killer/data/photos/tetes/Pi'ky.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Pi'ky",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Pi'ky_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Sid",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_2272 - Léo DI CIOCCO.JPG",
+      "dest": "/home/charl/killer/data/photos/tetes/Sid.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Sid",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Sid_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Bêvih",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/WhatsApp Image 2025-10-19 à 19.32.49_bd997d29 - Edouard Backman.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Bêvih.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Bêvih",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Bêvih_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Sheper",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Sheper.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Sheper.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Sheper",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Sheper_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Stuhr",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_9549 - Hector (Frézal).jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Stuhr.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Stuhr",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/f88c05ee-cd91-4530-ab52-e519f680e28b - Hector (Frézal).jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Stuhr_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Seffez",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Seffez.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Seffez.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Seffez",
+      "type": "feet",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4349 - Eliott Barbier.HEIC",
+      "dest": "/home/charl/killer/data/photos/pieds/Seffez_pieds.jpg",
+      "reason": "convert_failed"
+    },
+    {
+      "nickname": "Löva",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_1480 - Esther Barthou.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Löva.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Löva",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_7174 - Esther Barthou.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Löva_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Del’ré",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_3089 - Léa SERVAL.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Del’ré.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Del’ré",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Del’ré_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Lidha",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG-20240723-WA0036 - Laurène Cristol.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Lidha.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lidha",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Lidha_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Cha'ky",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Cha'ky.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Cha'ky.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Cha'ky",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Cha'ky_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Vigho",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_6706 - benoit garrel.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Vigho.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Vigho",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_8337 - benoit garrel.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Vigho_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Termo",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/WhatsApp Image 2025-10-16 à 15.19.57_9c96e4b0 - efef qeqf.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Termo.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Termo",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/Capture d’écran 2025-10-16 152159 - efef qeqf.png",
+      "dest": "/home/charl/killer/data/photos/pieds/Termo_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ipso",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_0132 - Emy Sanson.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ipso.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ipso",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ipso_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Sheel",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_6176 - Colombe loviton.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Sheel.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Sheel",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Sheel_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Peusher",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Peusher.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Peusher.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Peusher",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4696 - Jules Guilloud.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Peusher_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "2zer",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/2zer.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/2zer.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "2zer",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound6959006848149444269 - Vincent DANIEL.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/2zer_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "T.A.C.",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/T.A.C..jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "T.A.C.",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/T.A.C._pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Bitwin",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Bitwin.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Bitwin",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound5230303061221240283 - Rodrigue.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Bitwin_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Graf",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/image - Uriel rpa.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Graf.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Graf",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Graf_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Tmax",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Tmax.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Tmax",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Tmax_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Garibaldi",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound1521110654692596427 - Armel Rouxel.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Garibaldi.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Garibaldi",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Garibaldi_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Blade",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/Locket_1760596487940_44 - Pauline Charnin.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Blade.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Blade",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG-20251014-WA0006 - Pauline Charnin.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Blade_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ozy",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/inbound1280218989471646609 - Tess Bernard.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ozy.jpg",
+      "reason": "dest_exists"
+    },
+    {
+      "nickname": "Ozy",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ozy_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Sento",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_0855 - Armel Dumont.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Sento.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Sento",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_0897 - Armel Dumont.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Sento_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ben’sé",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_6423 - Alice Fournial.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ben’sé.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ben’sé",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ben’sé_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Vanha",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Vanha.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Vanha",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_8769 - Maud Pruszkowski.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Vanha_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Veluks",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/34e0e6a9-8ab7-47e6-9a49-67d14120ed3e - Vincent Brieussel.jfif",
+      "dest": "/home/charl/killer/data/photos/tetes/Veluks.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Veluks",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/f33ee98e-238d-4287-838e-862abcadeb0a - Vincent Brieussel.jfif",
+      "dest": "/home/charl/killer/data/photos/pieds/Veluks_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Peper",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Peper.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Peper.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Peper",
+      "type": "feet",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_1007 - lucas steunou.HEIC",
+      "dest": "/home/charl/killer/data/photos/pieds/Peper_pieds.jpg",
+      "reason": "convert_failed"
+    },
+    {
+      "nickname": "Atom",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Atom.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Atom.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Atom",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_1381 - Jean Guibout.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Atom_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lahmôm",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/WIN_20251018_10_03_47_Pro - Mileva P.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Lahmôm.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lahmôm",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/WIN_20251018_10_06_15_Pro - Mileva P.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Lahmôm_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Fehnster",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound6867389822342630450 - Alexis Rachard.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Fehnster.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Fehnster",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound6740434472597839565 - Alexis Rachard.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Fehnster_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kaskooh",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound8995709021969569176 - Gui Tar.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Kaskooh.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kaskooh",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Kaskooh_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Prime",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound8432590481753847565 - Agustín Soux.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Prime.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Prime",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Prime_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "ELKA",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound8196654768993268564 - Emilie Stentz.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/ELKA.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "ELKA",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound4676406613147635521 - Emilie Stentz.png",
+      "dest": "/home/charl/killer/data/photos/pieds/ELKA_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "k2",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_5555 - Benjamin D.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/k2.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "k2",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/k2_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Bashung",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound5437421269695437215 - Léopold Castagne.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Bashung.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Bashung",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Bashung_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Liba",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound1421483166067522551 - Margot MAUNY.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Liba.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Liba",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Liba_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Coleman",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound3655607764008366299 - Thomas Papon.png",
+      "dest": "/home/charl/killer/data/photos/tetes/Coleman.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Coleman",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound7673685230997845356 - Thomas Papon.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Coleman_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Medadom",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/image - Ilian El Ghadouani.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Medadom.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Medadom",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_1402 - Ilian El Ghadouani.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Medadom_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Valmy",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound165508509923731098 - Olivié 2 ché karglas.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Valmy.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Valmy",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound8767399264402972735 - Olivié 2 ché karglas.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Valmy_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "DUB",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/DUB.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/DUB.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "DUB",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/DUB_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Ebay",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound7719136254871075868 - Etienne Patriarche.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ebay.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ebay",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ebay_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Wallace",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_4049 - Colin Shaw.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Wallace.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Wallace",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_5729 - Colin Shaw.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Wallace_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lavanille",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/BFCCBC27-4298-44DA-9CC0-0540053D9DFB - Adrien Wright.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Lavanille.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Lavanille",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Lavanille_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Ekho",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_9918 - Louise Lithard.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ekho.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ekho",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ekho_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Tiyah",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Tiyah.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Tiyah.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Tiyah",
+      "type": "feet",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/pieds/Tiyah_pieds.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Tiyah_pieds.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Stitsche",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_8291 - Vladislas Bancod.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Stitsche.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Stitsche",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/pieds - Vladislas Bancod.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Stitsche_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kaizen",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/F1EA8262-9DEA-4F62-9EFB-8F6E551F8FEB_1_105_c - Pierre Pérault.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Kaizen.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kaizen",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Kaizen_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Raaaaman",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/neuille - Alexandre MASSIES.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Raaaaman.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Raaaaman",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/pieds - Alexandre MASSIES.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Raaaaman_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Néris",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_4574 - Ariane Keraudren.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Néris.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Néris",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/F52D8208-8ED5-4F6D-8F65-B14F293CAD70 - Ariane Keraudren.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Néris_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Dutopinambour",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound6278736124940188440 - Samuel Cohen.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Dutopinambour.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Dutopinambour",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Dutopinambour_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Kapla",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_4159 - Gabrielle Cuchet.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Kapla.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Kapla",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4160 - Gabrielle Cuchet.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Kapla_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Manjah",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound37603533174398858 - Nathan.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Manjah.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Manjah",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Manjah_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Etsy",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_4573 - Jeanne Constant.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Etsy.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Etsy",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4149 - Jeanne Constant.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Etsy_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Trakhto",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/177bcdd3-c250-4451-9d2c-83904a207b40 - Dylan Li.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Trakhto.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Trakhto",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Trakhto_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Muse",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_1679 - Nina Houzel.HEIC",
+      "dest": "/home/charl/killer/data/photos/tetes/Muse.jpg",
+      "reason": "convert_failed"
+    },
+    {
+      "nickname": "Muse",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4567 - Nina Houzel.WEBP",
+      "dest": "/home/charl/killer/data/photos/pieds/Muse_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Dako",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_0733 - Matthieu.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Dako.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Dako",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Dako_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Hyllis",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/6d705cd2-95dc-47ca-90ab-a7e8c54c6f5b - Lucille Coutaud.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Hyllis.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Hyllis",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Hyllis_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Tripotunsuricate",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_4779 - gaspard de saint sernin.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Tripotunsuricate.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Tripotunsuricate",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_4790 - gaspard de saint sernin.png",
+      "dest": "/home/charl/killer/data/photos/pieds/Tripotunsuricate_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ryne",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_0916 - emilie bleriot.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Ryne.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Ryne",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Ryne_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Otah",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Otah.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Otah",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Otah_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Netah",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/20200320_111749 - Adrien Spitz.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Netah.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Netah",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Netah_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": ".wav",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound148853956130213018 - guilhem llopis.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/.wav.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": ".wav",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/.wav_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Babooh",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Babooh.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Babooh.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Babooh",
+      "type": "feet",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/pieds/Babooh_pieds.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Babooh_pieds.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Windo",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_3454 - baptiste dupoux.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Windo.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Windo",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Windo_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Kdi",
+      "type": "person",
+      "action": "skipped",
+      "src": "/home/charl/killer/data/photos/tetes/Kdi.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Kdi.jpg",
+      "reason": "already_ok"
+    },
+    {
+      "nickname": "Kdi",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/IMG_2721 - Naël elh.jpeg",
+      "dest": "/home/charl/killer/data/photos/pieds/Kdi_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Proko",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound8709592095047229420 - Geoffrey Brunon.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Proko.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Proko",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound1008625628605468917 - Geoffrey Brunon.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Proko_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Toven",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/2025.09_Bivouac_Chartreuse_088 - Nicolas Watiez.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Toven.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Toven",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Toven_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Nüjan",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound7655950740941513905 - Adrien Lemeille.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Nüjan.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Nüjan",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound1768233652904781731 - Adrien Lemeille.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Nüjan_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Hydro",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG_2200 - notoum.jpeg",
+      "dest": "/home/charl/killer/data/photos/tetes/Hydro.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Hydro",
+      "type": "feet",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/pieds/Hydro_pieds.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Eni",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/IMG-20250830-WA0063 - Thomas Calmel.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Eni.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Eni",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/17606329171063353182465812020382 - Thomas Calmel.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Eni_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Pumba",
+      "type": "person",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/tetes/inbound2254040177236356364 - Vianney Doutté.jpg",
+      "dest": "/home/charl/killer/data/photos/tetes/Pumba.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Pumba",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/inbound6596209389068833822 - Vianney Doutté.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Pumba_pieds.jpg",
+      "reason": ""
+    },
+    {
+      "nickname": "Loom",
+      "type": "person",
+      "action": "skipped",
+      "src": "",
+      "dest": "/home/charl/killer/data/photos/tetes/Loom.jpg",
+      "reason": "not_found"
+    },
+    {
+      "nickname": "Loom",
+      "type": "feet",
+      "action": "renamed",
+      "src": "/home/charl/killer/data/photos/pieds/1760605652448 - Marion Aubert.jpg",
+      "dest": "/home/charl/killer/data/photos/pieds/Loom_pieds.jpg",
+      "reason": ""
+    }
+  ]
+}

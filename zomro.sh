@@ -271,6 +271,14 @@ deploy_app() {
         return 1
     }
     
+    # 2b. Copier les données locales (CSV + uploads) si présentes
+    if [ -d "data" ]; then
+        echo -e "${BLUE}Copie du dossier data/...${NC}"
+        $SCP_COMMAND -r data $ZOMRO_USER@$ZOMRO_IP:$DEST_DIR/ || {
+            echo -e "${YELLOW}AVERTISSEMENT: Impossible de copier le dossier data!${NC}"
+        }
+    fi
+    
     # 3. Copier le fichier d'environnement
     echo -e "${BLUE}Copie du fichier d'environnement...${NC}"
     if [ -f ".env.zomro" ]; then
@@ -347,7 +355,16 @@ EOL" || {
         $SSH_COMMAND "cd $DEST_DIR && python -c 'import ssl_bypass' && nohup gunicorn -b 0.0.0.0:$PORT server:app --workers 3 --timeout 60 > /var/log/killer.log 2>&1 &"
     }
     
-    # 9. Afficher le statut
+    # 9. Créer le répertoire data pour les CSV
+    echo -e "${BLUE}Création du répertoire data...${NC}"
+    $SSH_COMMAND "mkdir -p $DEST_DIR/data/images" || {
+        echo -e "${YELLOW}AVERTISSEMENT: Impossible de créer le répertoire data!${NC}"
+    }
+    
+    # 10. (Synchronisation supprimée - version CSV local uniquement)
+    echo -e "${GREEN}✓ Déploiement des données locales (CSV/uploads) terminé${NC}"
+    
+    # 11. Afficher le statut
     echo -e "${BLUE}Vérification du statut...${NC}"
     $SSH_COMMAND "systemctl status killer || ps aux | grep gunicorn"
     

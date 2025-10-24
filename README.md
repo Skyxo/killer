@@ -184,6 +184,7 @@ Pour tuer un port
 sudo lsof -i :5000
 sudo ss -ltnp | grep :5000
 sudo kill -9 PID
+sudo ss -ltnp | grep :8080
 
 
 ```
