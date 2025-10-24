@@ -177,12 +177,12 @@ _cached_sheet_timestamp = 0.0
 # Cache pour les données des joueurs
 _players_cache = None
 _players_cache_timestamp = 0.0
-_players_cache_ttl = 5.0  # 5 secondes de cache pour les données joueurs
+_players_cache_ttl = 30.0  # 30 secondes de cache pour les données joueurs (optimisé pour charge)
 
 # Cache pour la feuille 2 (mapping Surnom -> Défi ciblé)
 _actions_map_cache = None
 _actions_map_cache_timestamp = 0.0
-_actions_map_cache_ttl = 5.0
+_actions_map_cache_ttl = 30.0  # 30 secondes pour réduire les appels API
 
 # Verrou global pour sérialiser les écritures critiques sur Google Sheets
 _sheet_write_lock = threading.Lock()
@@ -1568,7 +1568,9 @@ def _default_worker_count() -> int:
         cpu_count = multiprocessing.cpu_count()
     except (ImportError, NotImplementedError):  # pragma: no cover - environ exotiques
         cpu_count = 1
-    return max(1, cpu_count * 2 + 1)
+    # Pour workers async (gevent): cpu_count * 4-8
+    # Pour workers sync: cpu_count * 2 + 1
+    return max(1, cpu_count * 4)
 
 
 def _build_gunicorn_options() -> dict:
@@ -1577,12 +1579,19 @@ def _build_gunicorn_options() -> dict:
     workers = _coerce_positive_int(
         os.environ.get("GUNICORN_WORKERS"), _default_worker_count()
     )
-    timeout = _coerce_positive_int(os.environ.get("GUNICORN_TIMEOUT"), 60)
+    timeout = _coerce_positive_int(os.environ.get("GUNICORN_TIMEOUT"), 120)
     keepalive = _coerce_positive_int(os.environ.get("GUNICORN_KEEPALIVE"), 5)
+    
+    # Worker class: gevent pour async (meilleur pour I/O), sync par défaut
+    worker_class = os.environ.get("GUNICORN_WORKER_CLASS", "gevent")
+    # Nombre de connexions simultanées par worker gevent
+    worker_connections = _coerce_positive_int(os.environ.get("GUNICORN_WORKER_CONNECTIONS"), 1000)
 
     return {
         "bind": f"{host}:{port}",
         "workers": workers,
+        "worker_class": worker_class,
+        "worker_connections": worker_connections,
         "timeout": timeout,
         "keepalive": keepalive,
         # Désactiver les access logs par défaut pour éviter le bruit en console.
@@ -1591,6 +1600,8 @@ def _build_gunicorn_options() -> dict:
         "errorlog": os.environ.get("GUNICORN_ERROR_LOG", "-"),
         "loglevel": os.environ.get("GUNICORN_LOGLEVEL", "info"),
         "worker_tmp_dir": os.environ.get("GUNICORN_WORKER_TMP_DIR"),
+        # Précharger l'app pour économiser la mémoire
+        "preload_app": True,
     }
 
 
