@@ -1,12 +1,14 @@
 
 # Secrets
 service_account.json
-
-# Secrets
-service_account.json
 flask_session/
 instance/
 *.sqlite3
 *.db
 .env
 __pycache__/
+
+# Backups
+backup_zomro_*/
+*.tar.gz
+backup.log

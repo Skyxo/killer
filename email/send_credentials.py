@@ -7,9 +7,9 @@ Usage:
   python send_credentials.py --csv [nom du csv].csv --rate 1.0 --login-url "http://188.137.182.53:8080/"
 
 Le script lit un CSV avec en-tête (séparateur virgule) contenant au minimum :
-- "Surnom (le même qu'au killer svp)"   -> identifiant
-- "Mdp"                                  -> mot de passe
-- "votre adresse e-mail (où vous allez recevoir votre mdp demain soir) (pas de faute de frappe svp)" -> email
+- "Surnom (le VRAI, pour pouvoir vous identifier)"   -> identifiant
+- "Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)"  -> mot de passe
+- "Adresse e-mail"                                   -> email
 
 Variables d'environnement requises :
   SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
@@ -26,14 +26,29 @@ import argparse
 import smtplib
 from email.message import EmailMessage
 from typing import Optional
+from pathlib import Path
+
+# Charger les variables d'environnement depuis .env
+try:
+    from dotenv import load_dotenv
+    # Chercher le .env dans le dossier parent (racine du projet)
+    env_path = Path(__file__).parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✓ Variables d'environnement chargées depuis {env_path}")
+    else:
+        # Essayer dans le dossier courant
+        load_dotenv()
+except ImportError:
+    print("⚠️  Module python-dotenv non installé. Chargez manuellement les variables avec : source ../.env")
 
 # 👇 ajoute/édite cette variable une seule fois
 login_url = "http://188.137.182.53:8080/"
 
 HEADER_MAP_DEFAULT = {
-    "identifiant": "Surnom (le même qu'au killer svp)",
-    "mot_de_passe": "Mdp",
-    "email": "votre adresse e-mail (où vous allez recevoir votre mdp demain soir) (pas de faute de frappe svp)",
+    "identifiant": "Surnom (le VRAI, pour pouvoir vous identifier)",
+    "mot_de_passe": "Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)",
+    "email": "Adresse e-mail",
 }
 
 DEFAULT_SUBJECT = "Rappel pour le killer idf/mdp"

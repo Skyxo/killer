@@ -20,14 +20,14 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_session import Session
-import gspread
-from google.oauth2 import service_account
-from google.auth.transport.requests import AuthorizedSession
+# import gspread  # N'est plus nécessaire - utilisation de CSV locaux
+# from google.oauth2 import service_account  # N'est plus nécessaire
+# from google.auth.transport.requests import AuthorizedSession  # N'est plus nécessaire
 import unicodedata
 
 try:
     import requests
-except ImportError:  # pragma: no cover - requests est une dépendance de gspread
+except ImportError:  # pragma: no cover
     requests = None
 
 
@@ -39,87 +39,14 @@ def _env_flag_is_true(env_value: Optional[str]) -> bool:
     return env_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def check_google_connectivity() -> None:
-    """Teste la connectivité aux principaux domaines Google utilisés par l'app."""
-
-    if _env_flag_is_true(os.environ.get("SKIP_CONNECTIVITY_CHECK")):
-        print("Vérification de la connectivité Google ignorée (SKIP_CONNECTIVITY_CHECK activé).")
-        return
-
-    print("\n=== VÉRIFICATION DE LA CONNECTIVITÉ AUX SERVEURS GOOGLE ===")
-
-    targets = {
-        "sheets.googleapis.com": "https://sheets.googleapis.com/$discovery/rest?version=v4",
-        "oauth2.googleapis.com": "https://oauth2.googleapis.com/.well-known/openid-configuration",
-        "www.googleapis.com": "https://www.googleapis.com/discovery/v1/apis",
-    }
-
-    timeout_seconds = int(os.environ.get("GOOGLE_CONNECTIVITY_TIMEOUT", "10"))
-    ssl_context = None
-    if _env_flag_is_true(os.environ.get("GOOGLE_CONNECTIVITY_SKIP_SSL_VERIFY")):
-        try:
-            import ssl
-
-            ssl_context = ssl._create_unverified_context()
-            print("Avertissement: la vérification SSL est désactivée pour ce test.")
-        except Exception as ssl_error:  # pragma: no cover - très improbable
-            print(f"Impossible de désactiver la vérification SSL: {ssl_error}")
-
-    problems_detected = False
-
-    for domain, test_url in targets.items():
-        # Test DNS
-        try:
-            ip_address = socket.gethostbyname(domain)
-            print(f"✓ DNS pour {domain}: OK ({ip_address})")
-        except socket.gaierror as dns_error:
-            problems_detected = True
-            print(f"✗ DNS pour {domain}: ÉCHEC ({dns_error})")
-            ip_address = None
-
-        # Test HTTPS
-        try:
-            request = urllib_request.Request(test_url, headers={"User-Agent": "Mozilla/5.0"})
-            if ssl_context is None:
-                with urllib_request.urlopen(request, timeout=timeout_seconds) as response:
-                    status_code = response.getcode()
-            else:
-                with urllib_request.urlopen(request, timeout=timeout_seconds, context=ssl_context) as response:
-                    status_code = response.getcode()
-
-            print(f"✓ HTTPS pour {domain}: OK (statut {status_code})")
-        except HTTPError as http_error:
-            status_code = http_error.code
-            if status_code < 500:
-                # L'appel a abouti mais la ressource renvoie une erreur fonctionnelle (ex: 401, 404)
-                print(f"✓ HTTPS pour {domain}: OK (statut {status_code})")
-            else:
-                problems_detected = True
-                print(f"✗ HTTPS pour {domain}: ÉCHEC ({http_error})")
-        except URLError as url_error:
-            problems_detected = True
-            reason = getattr(url_error, "reason", url_error)
-            print(f"✗ HTTPS pour {domain}: ÉCHEC ({reason})")
-        except Exception as unexpected_error:  # pragma: no cover - garde-fou
-            problems_detected = True
-            print(f"✗ HTTPS pour {domain}: ÉCHEC ({unexpected_error})")
-
-    if problems_detected:
-        print("\n✗ PROBLÈMES DE CONNECTIVITÉ DÉTECTÉS!")
-        print("Solutions possibles:")
-        print("1. Vérifiez que votre serveur autorise les connexions sortantes vers les domaines Google")
-        print("2. Contactez votre hébergeur pour autoriser les domaines requis")
-        print("3. Vérifiez la configuration du pare-feu ou proxy du serveur")
-    else:
-        print("\n✓ CONNECTIVITÉ AUX SERVEURS GOOGLE : OK")
-
-    print("==================================================\n")
+# Fonction désactivée - l'application n'utilise plus Google Sheets
+# def check_google_connectivity() -> None:
+#     """Teste la connectivité aux principaux domaines Google utilisés par l'app."""
+#     pass
 
 # Charger les variables d'environnement
 load_dotenv()
-print("Environnement chargé:")
-print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE')}")
-print(f"SHEET_ID: {os.environ.get('SHEET_ID')}")
+print("Environnement chargé (CSV locaux uniquement)")
 
 # Contrôle de verbosité des logs ACTIONS_MAP
 ACTIONS_VERBOSE = _env_flag_is_true(os.environ.get("VERBOSE_ACTIONS_LOG"))
@@ -164,8 +91,9 @@ os.makedirs(os.path.dirname(CSV_PLAYERS_FILE), exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
 
 # Verrous pour l'accès aux CSV
-_csv_players_lock = threading.Lock()
-_csv_defis_lock = threading.Lock()
+# Utilisation de RLock (Reentrant Lock) pour permettre au même thread d'acquérir le verrou plusieurs fois
+_csv_players_lock = threading.RLock()
+_csv_defis_lock = threading.RLock()
 
 # Cache pour mapping lien->nom de fichier drive
 _photos_link_to_name = None
@@ -320,11 +248,9 @@ try:
 except OSError as session_dir_error:
     print(f"AVERTISSEMENT: Impossible de lire les permissions du répertoire des sessions ({session_dir_error})")
 
-check_google_connectivity()
+# check_google_connectivity()  # Fonction désactivée - utilisation de CSV locaux
 
 print(f"Working directory: {os.getcwd()}")
-print(f"SERVICE_ACCOUNT_FILE: {os.environ.get('SERVICE_ACCOUNT_FILE')}")
-print(f"SHEET_ID: {os.environ.get('SHEET_ID')}")
 
 # Configuration des colonnes de la Google Sheet
 SHEET_COLUMNS = {
@@ -348,16 +274,19 @@ SHEET_COLUMNS = {
     "PHONE": 17,      # Téléphone
 }
 
-_sheet_cache_lock = threading.Lock()
-_cached_sheet = None
-_cached_sheet_timestamp = 0.0
+# Variables de cache Google Sheets désactivées
+# _cached_sheet = None
+# _cached_sheet_timestamp = 0.0
+
+# Lock pour le cache des joueurs (anciennement _sheet_cache_lock)
+_players_cache_lock = threading.Lock()
 
 # Cache pour les données des joueurs
 _players_cache = None
 _players_cache_timestamp = 0.0
 _players_cache_ttl = 30.0  # 30 secondes de cache pour les données joueurs (optimisé pour charge)
 
-# Cache pour la feuille 2 (mapping Surnom -> Défi ciblé)
+# Cache pour les défis (mapping Surnom -> défis)
 _actions_map_cache = None
 _actions_map_cache_timestamp = 0.0
 _actions_map_cache_ttl = 30.0  # 30 secondes pour réduire les appels API
@@ -372,7 +301,8 @@ def read_csv_players():
     with _csv_players_lock:
         with open(CSV_PLAYERS_FILE, 'r', encoding='utf-8', newline='') as f:
             reader = csv.DictReader(f)
-            return list(reader)
+            data = list(reader)
+            return data
 
 def write_csv_players(players_data):
     """Écrit la liste de joueurs dans le fichier CSV"""
@@ -436,7 +366,8 @@ def read_csv_defis():
             actions_map = {}
             for row in reader:
                 nickname = (row.get('Surnom') or '').strip()
-                action = (row.get('Défi ciblé') or '').strip()
+                # Colonne standardisée : "défis"
+                action = (row.get('défis') or '').strip()
                 if nickname:
                     actions_map[nickname.lower()] = action
             return actions_map
@@ -445,10 +376,10 @@ def write_csv_defis(actions_map):
     """Écrit le mapping des défis dans le fichier CSV"""
     with _csv_defis_lock:
         with open(CSV_DEFIS_FILE, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=['Surnom', 'Défi ciblé'])
+            writer = csv.DictWriter(f, fieldnames=['Surnom', 'défis'])
             writer.writeheader()
             for nickname, action in actions_map.items():
-                writer.writerow({'Surnom': nickname, 'Défi ciblé': action})
+                writer.writerow({'Surnom': nickname, 'défis': action})
 
 def download_and_compress_image(drive_id, nickname):
     """Télécharge une image depuis Google Drive et la compresse"""
@@ -492,37 +423,36 @@ def download_and_compress_image(drive_id, nickname):
         print(f"Erreur lors de la compression de l'image {drive_id}: {e}")
         return None
 
-class AuthorizedSessionWithTimeout(AuthorizedSession):
-    """Session autorisée Google avec timeout par défaut."""
-
-    def __init__(self, credentials, default_timeout: Optional[float]):
-        super().__init__(credentials)
-        self._default_timeout = default_timeout
-
-    def request(self, method, url, data=None, headers=None, timeout=None, **kwargs):
-        effective_timeout = timeout or self._default_timeout
-        return super().request(
-            method,
-            url,
-            data=data,
-            headers=headers,
-            timeout=effective_timeout,
-            **kwargs,
-        )
-
-
-def _get_cached_sheet(ttl_seconds: float):
-    global _cached_sheet, _cached_sheet_timestamp
-    now = time.time()
-    if _cached_sheet is not None and (now - _cached_sheet_timestamp) < ttl_seconds:
-        return _cached_sheet
-    return None
+# Classe désactivée - l'application n'utilise plus Google Sheets
+# class AuthorizedSessionWithTimeout(AuthorizedSession):
+#     """Session autorisée Google avec timeout par défaut."""
+#     def __init__(self, credentials, default_timeout: Optional[float]):
+#         super().__init__(credentials)
+#         self._default_timeout = default_timeout
+#     def request(self, method, url, data=None, headers=None, timeout=None, **kwargs):
+#         effective_timeout = timeout or self._default_timeout
+#         return super().request(
+#             method,
+#             url,
+#             data=data,
+#             headers=headers,
+#             timeout=effective_timeout,
+#             **kwargs,
+#         )
 
 
-def _store_sheet_in_cache(sheet):
-    global _cached_sheet, _cached_sheet_timestamp
-    _cached_sheet = sheet
-    _cached_sheet_timestamp = time.time()
+# Fonctions de cache désactivées - l'application n'utilise plus Google Sheets
+# def _get_cached_sheet(ttl_seconds: float):
+#     global _cached_sheet, _cached_sheet_timestamp
+#     now = time.time()
+#     if _cached_sheet is not None and (now - _cached_sheet_timestamp) < ttl_seconds:
+#         return _cached_sheet
+#     return None
+# 
+# def _store_sheet_in_cache(sheet):
+#     global _cached_sheet, _cached_sheet_timestamp
+#     _cached_sheet = sheet
+#     _cached_sheet_timestamp = time.time()
 
 
 def _get_cached_actions_map(ttl_seconds: float):
@@ -542,7 +472,7 @@ def _store_actions_map_in_cache(actions_map: dict):
 def invalidate_players_cache():
     """Invalide le cache des joueurs après une modification"""
     global _players_cache, _players_cache_timestamp
-    with _sheet_cache_lock:
+    with _players_cache_lock:
         _players_cache = None
         _players_cache_timestamp = 0.0
 
@@ -587,98 +517,10 @@ def _normalize_name(value: Optional[str]) -> str:
         return str(value).strip().lower()
 
 
-# Connexion à l'API Google Sheets
-def get_sheet_client():
-    try:
-        cache_ttl = float(os.environ.get("SHEET_CACHE_TTL", "60"))
-        sheet = _get_cached_sheet(cache_ttl)
-        if sheet is not None:
-            return sheet
+# Fonctions désactivées - l'application n'utilise plus Google Sheets
+# Les fonctions get_sheet_client() et require_sheet_client() ont été supprimées
+# L'application fonctionne maintenant uniquement avec des fichiers CSV locaux
 
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        service_account_file = os.environ.get("SERVICE_ACCOUNT_FILE", "service_account.json")
-        
-        if not os.path.exists(service_account_file):
-            print(f"AVERTISSEMENT: Le fichier {service_account_file} est introuvable.")
-            if os.path.exists("service_account_example.json"):
-                print(f"Conseil: Copiez service_account_example.json vers {service_account_file} "
-                      f"et remplissez-le avec vos informations d'identification Google.")
-            return None
-        
-        timeout_seconds = float(os.environ.get("GOOGLE_REQUEST_TIMEOUT", "15"))
-        credentials = service_account.Credentials.from_service_account_file(
-            service_account_file,
-            scopes=scope
-        )
-        session_timeout = timeout_seconds if timeout_seconds > 0 else None
-        client = gspread.authorize(credentials)
-
-        # Remplace la session utilisée par gspread pour bénéficier d'un timeout par défaut.
-        client.session = AuthorizedSessionWithTimeout(credentials, session_timeout)
-        sheet_id = os.environ.get("SHEET_ID")
-        if not sheet_id:
-            print("AVERTISSEMENT: SHEET_ID manquant dans les variables d'environnement.")
-            print("Tentative d'utilisation du premier spreadsheet disponible...")
-            try:
-                # Try to use the first spreadsheet if SHEET_ID is not provided
-                sheet = client.open("Killer Game").sheet1  # Use a default name or try to list spreadsheets
-                print(f"Utilisation du spreadsheet: {sheet.spreadsheet.title}")
-                return sheet
-            except Exception as sheet_error:
-                available_sheets = [s.title for s in client.openall()]
-                if available_sheets:
-                    print(f"Spreadsheets disponibles: {', '.join(available_sheets)}")
-                    raise ValueError(f"SHEET_ID manquant. Veuillez spécifier l'un des spreadsheets disponibles: {', '.join(available_sheets)}")
-                else:
-                    raise ValueError("SHEET_ID manquant dans les variables d'environnement et aucun spreadsheet n'est disponible.")
-        try:
-            with _sheet_cache_lock:
-                cached_sheet = _get_cached_sheet(cache_ttl)
-                if cached_sheet is not None:
-                    return cached_sheet
-
-                workbook = client.open_by_key(sheet_id)
-                sheet1 = workbook.sheet1
-                _store_sheet_in_cache(sheet1)
-            return sheet1
-        except Exception as sheet_error:
-            raise ValueError(f"Erreur lors de l'ouverture du spreadsheet: {str(sheet_error)}. Vérifiez que l'ID est correct et que le service account a les permissions nécessaires.")
-    except Exception as e:
-        import traceback
-        error_msg = str(e)
-        
-        if "APIError" in error_msg and ("API has not been used" in error_msg or "is disabled" in error_msg):
-            print("\n=== AVERTISSEMENT: PROBLÈME D'API GOOGLE SHEETS ===")
-            print("L'API Google Sheets n'est pas activée pour ce projet.")
-            print("1. Allez sur Google Cloud Console: https://console.cloud.google.com/apis/library")
-            print("2. Sélectionnez votre projet")
-            print("3. Recherchez et activez 'Google Sheets API'")
-            print("4. Attendez quelques minutes pour que l'activation soit prise en compte")
-            print("===================================\n")
-            print("Le serveur continue de démarrer malgré cette erreur.")
-            return None
-        else:
-            print(f"AVERTISSEMENT: Erreur lors de la connexion à Google Sheets: {error_msg}")
-            print(f"Détails de l'erreur: {traceback.format_exc()}")
-            if requests is not None and isinstance(e, requests.exceptions.Timeout):
-                print("Détails: Timeout lors de l'appel à l'API Google Sheets. Réessayera au prochain appel.")
-            print("Le serveur continue de démarrer malgré cette erreur.")
-            return None
-    except Exception as e:
-        import traceback
-        print(f"AVERTISSEMENT: Erreur lors de la connexion à Google Sheets: {str(e)}")
-        print(f"Détails de l'erreur: {traceback.format_exc()}")
-        print("Le serveur continue de démarrer malgré cette erreur.")
-        return None
-
-# Fournit un accès obligatoire à la feuille ou lève une erreur contrôlée
-def require_sheet_client():
-    sheet = get_sheet_client()
-    if sheet is None:
-        raise ConnectionError(
-            "Connexion à Google Sheets indisponible. Vérifiez la connectivité réseau et les identifiants."
-        )
-    return sheet
 
 
 def get_actions_map():
@@ -692,6 +534,10 @@ def get_actions_map():
 
     if ACTIONS_VERBOSE:
         print(f"[ACTIONS_MAP] Total mappings depuis CSV: {len(actions_map)}")
+        if len(actions_map) > 0:
+            # Afficher quelques exemples
+            sample = list(actions_map.items())[:3]
+            print(f"[ACTIONS_MAP] Exemples: {sample}")
 
     _store_actions_map_in_cache(actions_map)
     return actions_map
@@ -1067,13 +913,13 @@ def kill():
             # Mise à jour batch des deux joueurs
             batch_update_csv_players([
                 (killer_now["nickname"], {
-                    "Nombre de kills": str(killer_kills + 1),
+                    "Nombre de kill": str(killer_kills + 1),
                     "Cible actuelle": next_target_nickname or ""
                 }),
                 (victim_now["nickname"], {
                     "État": "dead",
                     "Cible actuelle": "",
-                    "Tué par (surnom du killer)": killer_now.get("nickname", "")
+                    "Tué par": killer_now.get("nickname", "")
                 })
             ])
 
@@ -1127,13 +973,12 @@ def killed():
         dead_active_count = sum(1 for p in active_players if p.get("status", "").lower() == "dead")
         elimination_order = dead_active_count + 1
         
-        print(f"[KILLED] Joueur {player['nickname']} éliminé. Ordre: {elimination_order} (morts actifs actuels: {dead_active_count})")
-        
         # Écritures dans le CSV avec verrou
         with _csv_players_lock:
             # Relecture actuelle
             invalidate_players_cache()
             me_now = get_player_by_nickname(session["nickname"]) or player
+            
             if str(me_now.get("status", "")).lower() == "dead":
                 return jsonify({"success": False, "message": "Vous êtes déjà mort"}), 409
 
@@ -1148,7 +993,7 @@ def killed():
             updates_list = [
                 (me_now["nickname"], {
                     "État": "dead",
-                    "Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)": str(elimination_order)
+                    "Ordre d'élimination": str(elimination_order)
                 })
             ]
             
@@ -1157,9 +1002,9 @@ def killed():
                 assassin_kills = assassin.get("kill_count", 0)
                 updates_list.append((assassin["nickname"], {
                     "Cible actuelle": new_target,
-                    "Nombre de kills": str(assassin_kills + 1)
+                    "Nombre de kill": str(assassin_kills + 1)
                 }))
-                updates_list[0][1]["Tué par (surnom du killer)"] = assassin.get("nickname", "")
+                updates_list[0][1]["Tué par"] = assassin.get("nickname", "")
             
             batch_update_csv_players(updates_list)
 
@@ -1174,8 +1019,6 @@ def killed():
         return jsonify({"success": False, "message": str(e)}), 503
     except Exception as e:
         print(f"Erreur lors de la déclaration de mort: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"success": False, "message": f"Erreur lors de la déclaration: {str(e)}"}), 500
 
 @app.route("/api/giveup", methods=["POST"])
@@ -1206,7 +1049,7 @@ def give_up():
             updates_list = [
                 (me_now["nickname"], {
                     "État": "gaveup",
-                    "Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)": str(elimination_order),
+                    "Ordre d'élimination": str(elimination_order),
                     "Cible actuelle": ""
                 })
             ]
@@ -1428,7 +1271,7 @@ def get_all_players():
     
     # Vérifier le cache
     now = time.time()
-    with _sheet_cache_lock:
+    with _players_cache_lock:
         if _players_cache is not None and (now - _players_cache_timestamp) < _players_cache_ttl:
             return _players_cache
     
@@ -1447,11 +1290,18 @@ def get_all_players():
             person_local = _expected_local_photo_url(nickname, prefer_feet=False)
             feet_local = _expected_local_photo_url(nickname, prefer_feet=True)
             
+            # Récupérer l'année avec plusieurs variantes possibles du nom de colonne
+            year_value = _get_csv_value(player_dict, [
+                "Année",
+                "Année (0A, 2A, 3A, etc.)",
+                "Annee",
+            ])
+            
             players.append({
                 "row": i,
                 "nickname": nickname,
-                "gender": player_dict.get("Sexe (H/F)", "").strip(),
-                "year": player_dict.get("Année (0A, 2A, 3A, etc.)", "").strip().upper(),
+                "gender": player_dict.get("Sexe", "").strip(),
+                "year": year_value.strip().upper() if year_value else "",
                 "password": _get_csv_value(player_dict, [
                     "Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)",
                     "Votre mot de passe",
@@ -1461,25 +1311,23 @@ def get_all_players():
                 "feet_photo": feet_local,
                 "kro_answer": player_dict.get("Combien y a t il de cars dans une kro ?", "").strip(),
                 "before_answer": player_dict.get("Est-ce que c'était mieux avant ?", "").strip(),
-                "message": player_dict.get("Un petit mot pour vos brasseurs adorés", "").strip(),
-                "challenge_ideas": player_dict.get("Idées de défis", "").strip(),
+                "message": player_dict.get("Un petit mot pour vos brasseurs adorés <3", "").strip(),
+                "challenge_ideas": player_dict.get("Idées de défis complètement beuteuh (ça facilite le brassage)", "").strip(),
                 "target": player_dict.get("Cible actuelle", "").strip(),
                 "action": get_action_for_target(player_dict.get("Cible actuelle", "").strip()),
                 "status": _normalize_status(player_dict.get("État", "alive")),
-                "killed_by": player_dict.get("Tué par (surnom du killer)", "").strip(),
+                "killed_by": player_dict.get("Tué par", "").strip(),
                 "is_admin": _parse_admin_flag(player_dict.get("Admin", "False")),
                 "phone": player_dict.get("Téléphone", "").strip(),
-                "elimination_order": player_dict.get("Ordre d'élimination (-1=ne joue pas, 0=en jeu, >0=éliminé)", "").strip(),
-                "kill_count": _parse_int(player_dict.get("Nombre de kills", "0"), 0),
+                "elimination_order": player_dict.get("Ordre d'élimination", "").strip(),
+                "kill_count": _parse_int(player_dict.get("Nombre de kill", "0"), 0),
             })
         except Exception as e:
-            print(f"[GET_ALL_PLAYERS] Erreur parsing joueur {i}: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Erreur parsing joueur {i}: {e}")
             continue
 
     # Mettre en cache les résultats
-    with _sheet_cache_lock:
+    with _players_cache_lock:
         _players_cache = players
         _players_cache_timestamp = time.time()
     
@@ -1664,180 +1512,52 @@ def logout():
 
 @app.route("/api/admin/sync", methods=["POST"])
 def admin_sync():
-    """Synchronise les données depuis Google Sheets vers les CSV locaux"""
-    if "nickname" not in session:
-        return jsonify({"success": False, "message": "Non connecté"}), 401
+    """Route désactivée - l'application n'utilise plus Google Sheets"""
+    return jsonify({
+        "success": False, 
+        "message": "Synchronisation Google Sheets désactivée - utilisez directement les fichiers CSV dans le dossier data/"
+    }), 410
 
-    try:
-        current_player = get_player_by_nickname(session["nickname"])
-    except ConnectionError as e:
-        return jsonify({"success": False, "message": str(e)}), 503
+# ANCIENNE VERSION (désactivée)
+# def admin_sync_OLD():
+#     """Synchronise les données depuis Google Sheets vers les CSV locaux"""
+#     if "nickname" not in session:
+#         return jsonify({"success": False, "message": "Non connecté"}), 401
 
-    if not current_player:
-        return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
+#     try:
+#         current_player = get_player_by_nickname(session["nickname"])
+#     except ConnectionError as e:
+#         return jsonify({"success": False, "message": str(e)}), 503
 
-    if not current_player.get("is_admin"):
-        return jsonify({"success": False, "message": "Accès refusé - Administrateur requis"}), 403
+#     if not current_player:
+#         return jsonify({"success": False, "message": "Joueur non trouvé"}), 404
 
-    try:
-        sheet = require_sheet_client()
-        workbook = sheet.spreadsheet
-        
-        print("[SYNC] Début de la synchronisation...")
-        
-        # 1. Synchroniser la feuille principale (joueurs)
-        print("[SYNC] Téléchargement de la feuille joueurs...")
-        data = sheet.get_all_values()
-        
-        if not data:
-            return jsonify({"success": False, "message": "Aucune donnée dans la feuille"}), 500
-        
-        headers = data[0]
-        players_data = []
-        images_downloaded = 0
-        images_failed = 0
-        
-        for i, row in enumerate(data[1:], 2):
-            if len(row) <= SHEET_COLUMNS["NICKNAME"]:
-                continue
-            
-            nickname = (row[SHEET_COLUMNS["NICKNAME"]] or "").strip()
-            if not nickname:
-                continue
-            
-            # Créer un dictionnaire pour ce joueur
-            player_dict = {}
-            for j, header in enumerate(headers):
-                player_dict[header] = row[j] if j < len(row) else ""
-            
-            # Télécharger et compresser les images
-            person_photo_id = extract_google_drive_id(row[SHEET_COLUMNS["PERSON_PHOTO"]]) if len(row) > SHEET_COLUMNS["PERSON_PHOTO"] else ""
-            feet_photo_id = extract_google_drive_id(row[SHEET_COLUMNS["FEET_PHOTO"]]) if len(row) > SHEET_COLUMNS["FEET_PHOTO"] else ""
-            
-            if person_photo_id:
-                print(f"[SYNC] Téléchargement image personne pour {nickname}...")
-                filename = download_and_compress_image(person_photo_id, f"{nickname}_person")
-                if filename:
-                    player_dict[headers[SHEET_COLUMNS["PERSON_PHOTO"]]] = filename
-                    images_downloaded += 1
-                else:
-                    images_failed += 1
-            
-            if feet_photo_id:
-                print(f"[SYNC] Téléchargement image pieds pour {nickname}...")
-                filename = download_and_compress_image(feet_photo_id, f"{nickname}_feet")
-                if filename:
-                    player_dict[headers[SHEET_COLUMNS["FEET_PHOTO"]]] = filename
-                    images_downloaded += 1
-                else:
-                    images_failed += 1
-            
-            players_data.append(player_dict)
-        
-        # Écrire les données joueurs dans le CSV
-        write_csv_players(players_data)
-        print(f"[SYNC] {len(players_data)} joueurs synchronisés")
-        
-        # 2. Synchroniser la feuille des défis
-        print("[SYNC] Téléchargement de la feuille défis...")
-        try:
-            defis_ws = workbook.worksheet("defis")
-        except Exception:
-            # Fallback sur la 2e feuille par index
-            worksheets = workbook.worksheets()
-            if len(worksheets) >= 2:
-                defis_ws = worksheets[1]
-            else:
-                print("[SYNC] Aucune feuille défis trouvée, création d'un mapping vide")
-                defis_ws = None
-        
-        if defis_ws:
-            defis_data = defis_ws.get_all_values()
-            actions_map = {}
-            
-            for row in defis_data[1:]:  # Ignorer l'en-tête
-                if not row:
-                    continue
-                nickname = (row[0] or "").strip()
-                action = (row[1] if len(row) > 1 else "").strip()
-                if nickname:
-                    actions_map[nickname] = action
-            
-            # Écrire le CSV des défis
-            with _csv_defis_lock:
-                with open(CSV_DEFIS_FILE, 'w', encoding='utf-8', newline='') as f:
-                    writer = csv.DictWriter(f, fieldnames=['Surnom', 'Défi ciblé'])
-                    writer.writeheader()
-                    for nickname, action in actions_map.items():
-                        writer.writerow({'Surnom': nickname, 'Défi ciblé': action})
-            
-            print(f"[SYNC] {len(actions_map)} défis synchronisés")
-        
-        # Invalider les caches pour forcer le rechargement
-        invalidate_players_cache()
-        global _actions_map_cache, _actions_map_cache_timestamp
-        with _sheet_cache_lock:
-            _actions_map_cache = None
-            _actions_map_cache_timestamp = 0.0
-        
-        print("[SYNC] Synchronisation terminée!")
-        
-        return jsonify({
-            "success": True,
-            "message": "Synchronisation réussie",
-            "stats": {
-                "players": len(players_data),
-                "defis": len(actions_map) if defis_ws else 0,
-                "images_downloaded": images_downloaded,
-                "images_failed": images_failed
-            }
-        })
-        
-    except Exception as e:
-        import traceback
-        print(f"[SYNC] Erreur: {e}")
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Erreur lors de la synchronisation: {str(e)}"}), 500
+#     if not current_player.get("is_admin"):
+#         return jsonify({"success": False, "message": "Accès refusé - Administrateur requis"}), 403
+
+#     (code ancien supprimé - voir historique Git si nécessaire)
 
 @app.route("/api/debug", methods=["GET"])
 def debug():
-    # Endpoint de débogage - à commenter ou protéger en production
+    """Route désactivée - l'application n'utilise plus Google Sheets"""
     if "nickname" not in session:
         return jsonify({"success": False, "message": "Non connecté"}), 401
     
+    # Afficher des informations de débogage basées sur les CSV locaux
     try:
-        sheet = require_sheet_client()
-        data = sheet.get_all_values()
-        
-        # Convertir les données en format plus lisible
-        headers = data[0]
-        result = []
-        
-        for row in data[1:]:
-            player = {}
-            for i, header in enumerate(headers):
-                if i < len(row):
-                    player[header] = row[i]
-            result.append(player)
-        
-        # Ajouter des informations sur les photos pour le débogage
         player = get_player_by_nickname(session["nickname"])
-        photo_debug = {
-            "nickname": player["nickname"],
-            "person_photo_raw": sheet.cell(player["row"], SHEET_COLUMNS["PERSON_PHOTO"] + 1).value if player else "",
-            "person_photo_extracted": player["person_photo"] if player else "",
-            "feet_photo_raw": sheet.cell(player["row"], SHEET_COLUMNS["FEET_PHOTO"] + 1).value if player else "",
-            "feet_photo_extracted": player["feet_photo"] if player else "",
-            "url_preview": f"https://drive.google.com/uc?export=view&id={player['person_photo']}" if player and player["person_photo"] else ""
-        }
+        players = read_csv_players()
         
         return jsonify({
-            "success": True, 
-            "data": result,
-            "photo_debug": photo_debug,
-            "columns": SHEET_COLUMNS
+            "success": True,
+            "mode": "CSV local (Google Sheets désactivé)",
+            "current_player": player,
+            "total_players": len(players),
+            "csv_files": {
+                "players": CSV_PLAYERS_FILE,
+                "defis": CSV_DEFIS_FILE
+            }
         })
-    
     except Exception as e:
         return jsonify({"success": False, "message": f"Erreur: {str(e)}"}), 500
 
@@ -1928,6 +1648,9 @@ def run_gunicorn():
 
     options = _build_gunicorn_options()
     print("Démarrage de l'application avec Gunicorn")
+    print(f"[CONFIG] Fichier CSV joueurs: {CSV_PLAYERS_FILE}")
+    print(f"[CONFIG] Fichier CSV défis: {CSV_DEFIS_FILE}")
+    print(f"[CONFIG] Existence du fichier joueurs: {os.path.exists(CSV_PLAYERS_FILE)}")
     for key, value in options.items():
         if value is not None:
             print(f"  {key}: {value}")

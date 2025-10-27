@@ -54,7 +54,8 @@ function setActionButtonsDisabled(disabled) {
     try {
         if (killedBtn) killedBtn.disabled = disabled;
         if (giveUpBtn) giveUpBtn.disabled = disabled;
-        if (logoutBtn) logoutBtn.disabled = disabled; // évite collision d'état pendant mutation
+        // Ne jamais désactiver le bouton de déconnexion
+        // if (logoutBtn) logoutBtn.disabled = disabled;
     } catch (_) {}
 }
 
@@ -374,6 +375,13 @@ function loadTrombi() {
             });
             updateTrombiCategoryButtons();
             updateYearFilterButtons();
+            
+            // Afficher les filtres d'année si la catégorie "players" est active
+            const yearFilters = document.getElementById('trombi-year-filters');
+            if (yearFilters && currentTrombiCategory === 'players') {
+                yearFilters.classList.remove('hidden');
+            }
+            
             updateDeadPlayerInfo();
             updatePlayerStats();
             renderTrombi();
@@ -412,7 +420,8 @@ function updateYearFilterButtons() {
     const years = new Set();
     trombiPlayers.forEach(player => {
         if (!player.is_admin && player.year) {
-            years.add(player.year);
+            const normalizedYear = player.year.trim().toUpperCase();
+            years.add(normalizedYear);
         }
     });
     
@@ -426,21 +435,30 @@ function updateYearFilterButtons() {
     // Générer les boutons
     yearFiltersContainer.innerHTML = '';
     
-    // Bouton "Tous"
+    // Bouton "Tous" avec compteur
     const allBtn = document.createElement('button');
     allBtn.type = 'button';
     allBtn.className = 'trombi-year-btn active';
     allBtn.dataset.year = 'all';
-    allBtn.textContent = 'Tous';
+    const totalNonAdmins = trombiPlayers.filter(p => !p.is_admin).length;
+    allBtn.textContent = `Tous (${totalNonAdmins})`;
     yearFiltersContainer.appendChild(allBtn);
     
-    // Boutons pour chaque année
+    // Boutons pour chaque année avec compteur
     sortedYears.forEach(year => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'trombi-year-btn';
         btn.dataset.year = year;
-        btn.textContent = year;
+        
+        // Compter le nombre de joueurs de cette année
+        const yearCount = trombiPlayers.filter(p => {
+            if (p.is_admin) return false;
+            const playerYear = (p.year || '').trim().toUpperCase();
+            return playerYear === year;
+        }).length;
+        
+        btn.textContent = `${year} (${yearCount})`;
         yearFiltersContainer.appendChild(btn);
     });
     
@@ -453,6 +471,7 @@ function updateYearFilterButtons() {
             const year = btn.dataset.year;
             if (year && year !== currentYearFilter) {
                 currentYearFilter = year;
+                console.log(`Filtre d'année sélectionné: "${currentYearFilter}"`);
                 
                 // Réinitialiser la sélection
                 currentTrombiSelection = null;
@@ -503,6 +522,33 @@ function updateTrombiCategoryButtons() {
                 btn.classList.add('hidden');
             }
         }
+        
+        // Calculer le nombre de joueurs dans chaque catégorie
+        let count = 0;
+        if (category === 'players') {
+            count = trombiPlayers.filter(p => !p.is_admin).length;
+        } else if (category === 'admins') {
+            count = trombiPlayers.filter(p => p.is_admin).length;
+        } else if (category === 'alive') {
+            count = trombiPlayers.filter(p => {
+                const status = (p.status || 'alive').toLowerCase();
+                return status === 'alive' && !p.is_admin;
+            }).length;
+        } else if (category === 'dead') {
+            count = trombiPlayers.filter(p => {
+                const status = (p.status || 'alive').toLowerCase();
+                return status === 'dead';
+            }).length;
+        } else if (category === 'gaveup') {
+            count = trombiPlayers.filter(p => {
+                const status = (p.status || 'alive').toLowerCase();
+                return status === 'gaveup';
+            }).length;
+        }
+        
+        // Mettre à jour le texte du bouton avec le compteur
+        const baseText = btn.textContent.replace(/\s*\(\d+\)$/, ''); // Enlever l'ancien compteur si présent
+        btn.textContent = `${baseText} (${count})`;
         
         // Activer le bouton correspondant à la catégorie actuelle
         if (category === currentTrombiCategory) {
@@ -568,7 +614,11 @@ function renderTrombi() {
         
         // Si on est dans la catégorie "Joueurs", appliquer le filtre d'année
         if (categoryMatch && currentTrombiCategory === 'players' && currentYearFilter !== 'all') {
-            const yearMatch = player.year === currentYearFilter;
+            // Normaliser les années pour la comparaison (enlever espaces, mettre en majuscules)
+            const playerYear = (player.year || '').trim().toUpperCase();
+            const filterYear = (currentYearFilter || '').trim().toUpperCase();
+            const yearMatch = playerYear === filterYear;
+            console.log(`Filtre année: joueur=${player.nickname}, année joueur="${playerYear}", filtre="${filterYear}", match=${yearMatch}`);
             return yearMatch;
         }
         
@@ -1564,14 +1614,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Event Listeners
+    loginForm.addEventListener('submit', handleLogin);
+    killedBtn.addEventListener('click', handleKilled);
+    giveUpBtn.addEventListener('click', handleGiveUp);
+    logoutBtn.addEventListener('click', handleLogout);
+    closeNotification.addEventListener('click', closeKillNotification);
 });
-
-// Event Listeners
-loginForm.addEventListener('submit', handleLogin);
-killedBtn.addEventListener('click', handleKilled);
-giveUpBtn.addEventListener('click', handleGiveUp);
-logoutBtn.addEventListener('click', handleLogout);
-closeNotification.addEventListener('click', closeKillNotification);
 
 /**
  * Vérifie si l'utilisateur est déjà connecté
@@ -1751,16 +1801,20 @@ function showPlayerInterface(data) {
         // Ajouter une classe pour styler le bouton de déconnexion en rouge
         playerContainer.classList.add('player-admin');
     } else if (data.player.status && data.player.status.toLowerCase() === "dead") {
-        // Le joueur est mort, désactiver et cacher les boutons et la section cible
+        // Le joueur est mort, désactiver et cacher les boutons d'action et la section cible
         if (killedBtn) killedBtn.disabled = true;
         if (giveUpBtn) giveUpBtn.disabled = true;
+        // Le bouton de déconnexion reste toujours actif
+        if (logoutBtn) logoutBtn.disabled = false;
         if (actionButtons) actionButtons.classList.add('hidden');
         if (targetInfoSection) targetInfoSection.classList.add('hidden');
         playerContainer.classList.add('player-dead');
     } else if (data.player.status && data.player.status.toLowerCase() === "gaveup") {
-        // Le joueur a abandonné, désactiver et cacher les boutons et la section cible
+        // Le joueur a abandonné, désactiver et cacher les boutons d'action et la section cible
         if (killedBtn) killedBtn.disabled = true;
         if (giveUpBtn) giveUpBtn.disabled = true;
+        // Le bouton de déconnexion reste toujours actif
+        if (logoutBtn) logoutBtn.disabled = false;
         if (actionButtons) actionButtons.classList.add('hidden');
         if (targetInfoSection) targetInfoSection.classList.add('hidden');
         playerContainer.classList.add('player-gave-up');
@@ -2007,6 +2061,8 @@ function handleKilled(e) {
             // Désactiver et cacher les boutons d'action
             killedBtn.disabled = true;
             giveUpBtn.disabled = true;
+            // Le bouton de déconnexion reste toujours actif
+            if (logoutBtn) logoutBtn.disabled = false;
             if (actionButtons) actionButtons.classList.add('hidden');
             
             // Cacher la section cible
@@ -2068,6 +2124,8 @@ function handleGiveUp(e) {
             // Désactiver et cacher les boutons d'action
             killedBtn.disabled = true;
             giveUpBtn.disabled = true;
+            // Le bouton de déconnexion reste actif
+            if (logoutBtn) logoutBtn.disabled = false;
             if (actionButtons) actionButtons.classList.add('hidden');
             
             // Cacher la section cible

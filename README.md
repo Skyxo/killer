@@ -1,268 +1,640 @@
-# KILLER - Jeu de l'assassin
+# 🎯 Killer Game - Guide Complet de Configuration et Déploiement
 
-Une application web pour gérer le jeu du Killer, permettant aux joueurs de se connecter, voir leur cible, et marquer leurs "kills".
+Ce guide vous explique comment configurer et déployer le jeu Killer de A à Z.
 
-## Table des matières
+---
 
-1. [Présentation](#présentation)
-2. [Installation](#installation)
-3. [Configuration](#configuration)
-4. [Utilisation](#utilisation)
-5. [Tests Manuels](#tests-manuels)
-6. [Limitations connues et recommandations](#limitations-connues-et-recommandations)
-7. [Remarques techniques](#remarques-techniques)
+## 📋 Table des matières
 
-## Présentation
+1. [Création du Google Form](#1--création-du-google-form)
+2. [Sheet des défis personnalisés](#2--sheet-des-défis-personnalisés)
+3. [Téléchargement et organisation des données](#3--téléchargement-et-organisation-des-données)
+4. [Renommage des photos](#4--renommage-des-photos)
+5. [Envoi automatique des emails](#5--envoi-automatique-des-emails)
+6. [Test en local](#6--test-en-local)
+7. [Déploiement sur serveur Zomro](#7--déploiement-sur-serveur-zomro)
 
-Cette application permet de gérer un jeu de Killer où :
-- Chaque joueur a une cible à éliminer selon une action spécifique
-- Après avoir éliminé sa cible, le joueur hérite de la cible suivante
-- Le jeu continue jusqu'à ce qu'il ne reste qu'un seul survivant
+---
 
-## Installation
+## 1. 📝 Création du Google Form
+
+### Colonnes obligatoires à créer
+
+Créez un Google Form avec **toutes** les questions suivantes dans cet ordre :
+
+| Nom de la colonne | Type de question | Options | Obligatoire |
+|------------------|------------------|---------|-------------|
+| `Horodateur` | Automatique | Activé dans les paramètres | Oui |
+| `Surnom (le VRAI, pour pouvoir vous identifier)` | Texte court | - | Oui |
+| `Année` | Choix multiple | 0a, 2a, 3a, 4a, 5a, 6a | Oui |
+| `Sexe` | Choix multiple | H, F | Oui |
+| `Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)` | Texte court | - | Oui |
+| `Une photo de vous neuillesque (pour le jeu)` | Import de fichiers | Autoriser Google Drive | Oui |
+| `une photo de vos pieds (pour le plaisir)` | Import de fichiers | Autoriser Google Drive | Non |
+| `Combien y a t il de cars dans une kro ?` | Texte court | - | Non |
+| `Est-ce que c'était mieux avant ?` | Choix multiple | Oui / Non / Je suis sénile | Non |
+| `Un petit mot pour vos brasseurs adorés <3` | Paragraphe | - | Non |
+| `Idées de défis complètement beuteuh (ça facilite le brassage)` | Paragraphe | - | Non |
+
+### ⚠️ Configuration ESSENTIELLE des emails
+
+**IMPORTANT** : Pour pouvoir envoyer les mots de passe aux joueurs juste avant le jeu, vous **DEVEZ** activer la collecte automatique des adresses email :
+
+1. Dans les paramètres du formulaire (⚙️ en haut à droite)
+2. Cochez **"Collecter les adresses e-mail"**
+3. Cette option créera automatiquement une colonne `Adresse e-mail` dans les réponses
+
+Sans cette configuration, vous ne pourrez **PAS** envoyer les mots de passe automatiquement !
+
+### Colonnes système (ajoutées manuellement dans le CSV)
+
+Ces colonnes seront gérées par le jeu et doivent être ajoutées dans votre CSV après export :
+
+- `Cible actuelle` : Le surnom de la cible du joueur
+- `État` : `alive`, `dead`, `admin`, `gaveup`
+- `Tué par` : Surnom du killer (si mort)
+- `Ordre d'élimination` : Numéro d'ordre (1, 2, 3...) initialisé à 0 pour tous. Si vous mettez -1 la personne ne sera pas comptée dans le jeu (utile pour faire des tests)
+- `Nombre de kill` : Nombre de victimes initialisées à 0 pour tous
+- `Admin` : `TRUE` ou `FALSE`
+- `Téléphone` : Numéro de téléphone (format: 06.XX.XX.XX.XX)
+
+### Paramètres du formulaire
+
+- ✅ Activez "Collecter les adresses e-mail"
+- ✅ Limitez à 1 réponse par personne
+- ✅ Autorisez la modification après envoi (pour les retardataires)
+- ✅ Dans "Réponses", cliquez sur l'icône Sheets pour créer une feuille de calcul liée
+
+---
+
+## 2. 📊 Sheet des défis personnalisés
+
+### Création du fichier `defis.csv`
+
+Créez un Google Sheet séparé (ou un onglet dans le même fichier) avec cette structure :
+
+| Surnom | défis |
+|--------|-------|
+| user1 | lui faire boire de l'huile |
+| user2 | lui faire manger un bout d'oignon cru |
+| user3 | qu'il s'expose un ecocup sur le crane |
+
+### Format des défis
+
+- **Colonne A (Surnom)** : Le surnom EXACT du joueur (doit correspondre au formulaire)
+- **Colonne B (défis)** : Le défi personnalisé pour éliminer ce joueur
+
+### Conseils pour les défis
+
+- Soyez créatifs mais respectueux du consentement
+- Évitez les défis dangereux ou humiliants
+- Testez les défis sur vous-même avant de les proposer
+- Variez la difficulté : certains faciles, d'autres plus complexes
+- Pensez à l'ambiance du WE (bars, soirées, activités...)
+
+### Export du sheet
+
+1. Fichier → Télécharger → Valeurs séparées par des virgules (.csv)
+2. Renommez le fichier en `defis.csv`
+3. Placez-le dans le dossier `data/`
+
+---
+
+## 3. 📥 Téléchargement et organisation des données
+
+### Pourquoi télécharger les données ?
+
+**L'API Google Drive est limitée et peut être surchargée** :
+- ⏱️ Lenteur d'affichage des photos
+- 🚫 Risque de dépassement des quotas API
+- 💰 Coûts potentiels si trop de requêtes
+- 🔒 Dépendance à la connexion internet
+
+**Solution** : Télécharger toutes les photos en local pour un affichage instantané !
+
+### Étape 1 : Exporter les réponses du formulaire
+
+1. Ouvrez votre Google Form
+2. Allez dans l'onglet **"Réponses"**
+3. Cliquez sur l'icône **Google Sheets** (vert) pour ouvrir la feuille de calcul
+4. Dans Google Sheets : **Fichier → Télécharger → Valeurs séparées par des virgules (.csv)**
+5. Renommez le fichier téléchargé en **`formulaire.csv`**
+6. Placez-le dans le dossier `data/` de votre projet
+
+### Étape 2 : Télécharger automatiquement toutes les photos
+
+**🚀 Utilisez le script automatique - Ne téléchargez RIEN manuellement !**
+
+Le script fait tout le travail pour vous : téléchargement, conversion, renommage, optimisation.
+
+#### Installation des dépendances
+
+```bash
+pip install requests pillow
+```
+
+#### Lancement du script
+
+```bash
+cd scripts
+python download_photos.py
+```
+
+**C'est tout !** En quelques minutes, le script va :
+- ✅ Lire automatiquement `data/formulaire.csv`
+- ✅ Télécharger **toutes** les photos depuis Google Drive
+- ✅ Les convertir en JPG et les optimiser (max 1200x1200px, qualité 90%)
+- ✅ Les renommer automatiquement : `[Surnom].jpg` ou `[Surnom]_pieds.jpg`
+- ✅ Les placer dans `data/images/tetes/` et `data/images/pieds/`
+- ✅ Afficher un résumé détaillé des téléchargements
+
+#### Exemple de sortie
+
+```
+🚀 Démarrage du téléchargement des photos...
+
+[1] Traitement de admin1...
+  ✅ Photo de profil sauvegardée: admin1.jpg
+  ✅ Photo de pieds sauvegardée: admin1_pieds.jpg
+
+[2] Traitement de user1...
+  ✅ Photo de profil sauvegardée: user1.jpg
+  ⊘  Pas de photo de pieds
+
+============================================================
+📊 RÉSUMÉ
+Total de joueurs : 5
+Photos de profil : 5 téléchargées
+Photos de pieds : 3 téléchargées
+============================================================
+✅ Tous les téléchargements ont réussi !
+```
+
+#### Options avancées
+
+```bash
+# Test sans télécharger (voir ce qui serait fait)
+python download_photos.py --dry-run
+
+# Forcer le retéléchargement (écraser les fichiers existants)
+python download_photos.py --force
+```
+
+#### En cas d'interruption
+
+Le script est **idempotent** : si un téléchargement échoue ou est interrompu, relancez simplement la commande. Il ignorera les fichiers déjà téléchargés et reprendra là où il s'était arrêté.
+
+```bash
+python download_photos.py
+```
+
+📖 **Documentation complète** : `scripts/README.md`
+
+⚠️ **Ne téléchargez PAS les photos manuellement** : c'est long, fastidieux, et sujet aux erreurs. Le script gère tout automatiquement !
+
+### Arborescence finale
+
+Après l'exécution du script, vous aurez :
+
+```
+killer/
+└── data/
+    ├── formulaire.csv       # Réponses du formulaire
+    ├── defis.csv            # Défis personnalisés
+    └── images/
+        ├── tetes/           # Photos de profil (téléchargées automatiquement)
+        │   ├── admin1.jpg
+        │   ├── user1.jpg
+        │   └── ...
+        └── pieds/           # Photos de pieds (téléchargées automatiquement)
+            ├── admin1_pieds.jpg
+            ├── user1_pieds.jpg
+            └── ...
+```
+
+---
+
+## 4. ✅ Vérification des photos
+
+Après avoir lancé le script, **vérifiez que tout s'est bien passé** :
+
+Vous devriez voir des fichiers comme :
+- `admin1.jpg`, `user1.jpg`, `user2.jpg`... dans `tetes/`
+- `admin1_pieds.jpg`, `user1_pieds.jpg`... dans `pieds/`
+
+### Format des noms de fichiers
+
+Le script a automatiquement créé :
+- **Photos de profil** : `data/images/tetes/[Surnom].jpg`
+- **Photos de pieds** : `data/images/pieds/[Surnom]_pieds.jpg`
+
+### Que faire en cas de problème ?
+
+#### ❌ Certaines photos manquent
+
+Le script affiche les échecs dans son résumé. Vérifiez :
+1. Les liens Google Drive dans `formulaire.csv` sont corrects
+2. Les photos sont bien partagées publiquement sur google drive
+
+Puis relancez le script :
+```bash
+cd scripts
+python download_photos.py
+```
+
+#### ❌ Une photo est floue ou de mauvaise qualité
+
+Supprimez-la et retéléchargez :
+```bash
+rm data/images/tetes/[Surnom].jpg
+cd scripts
+python download_photos.py --force
+```
+
+#### ❌ Le script plante ou timeout
+
+- Vérifiez votre connexion internet
+- Relancez simplement, il reprendra où il s'était arrêté
+- Les photos très lourdes peuvent prendre du temps
+
+#### ❌ "Impossible d'extraire l'ID du lien"
+
+Le format du lien Google Drive n'est pas reconnu. Vérifiez que c'est bien un lien de ce type :
+- `https://drive.google.com/file/d/ID/view?usp=sharing`
+- `https://drive.google.com/open?id=ID`
+
+### ✅ Checklist avant de continuer
+
+- [ ] Toutes les photos de profil sont présentes
+- [ ] Les noms correspondent aux surnoms (pas d'erreur de frappe)
+- [ ] Les photos s'affichent correctement (ouvrez-en quelques unes)
+- [ ] Pas de messages d'erreur dans le résumé du script
+
+Une fois que tout est OK, passez à l'étape suivante !
+
+---
+
+## 5. 📧 Envoi automatique des emails
+
+### Objectif
+
+Envoyer automatiquement les identifiants (surnom + mot de passe) à chaque joueur **juste avant le début du jeu**.
 
 ### Prérequis
 
-- Python 3.9 ou supérieur
-- Un compte Google pour accéder à Google Sheets API
+1. ✅ Le fichier `formulaire.csv` doit contenir une colonne **`Adresse e-mail`**
+2. ✅ Chaque ligne doit avoir un email valide
+3. ✅ Vous devez avoir un compte SMTP (Gmail, Outlook, ou autre)
 
-### Étapes d'installation
+### Configuration SMTP
 
-1. Clonez ce dépôt sur votre machine locale
-   ```bash
-   git clone <url-du-dépôt>
-   cd killer_project
-   ```
+#### Avec Gmail
 
-2. Installez les dépendances requises
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. Créez un compte Gmail dédié (ex: `killer.weu56@gmail.com`)
+2. Activez l'authentification à deux facteurs
+3. Générez un "mot de passe d'application" :
+   - Allez dans **Compte Google → Sécurité → Validation en deux étapes**
+   - Cliquez sur **Mots de passe des applications**
+   - Sélectionnez **Autre** et nommez-le "Killer"
+   - Copiez le mot de passe généré (16 caractères, supprimer les espaces)
 
-3. Créez et configurez votre compte de service Google (voir section Configuration)
-
-4. Créez un fichier `.env` à partir du fichier `.env.example` et remplissez les variables d'environnement nécessaires
-
-5. Démarrez le serveur (Gunicorn est désormais utilisé par défaut)
-   ```bash
-   python server.py
-   ```
-   ou, pour spécifier vous-même les paramètres Gunicorn :
-   ```bash
-   gunicorn -b 0.0.0.0:5000 server:app --workers 3 --timeout 60
-   ```
-
-6. Accédez à l'application via votre navigateur à l'adresse http://localhost:5000
-
-## Configuration
-
-### 1. Création d'un compte de service Google
-
-1. Rendez-vous sur la [Console Google Cloud](https://console.cloud.google.com/)
-2. Créez un nouveau projet ou sélectionnez un projet existant
-3. **Important - Activez l'API Google Sheets pour votre projet**
-   - Dans "Bibliothèque d'API", recherchez "Google Sheets API"
-   - Cliquez dessus et appuyez sur le bouton "Activer"
-   - **Pour projet killer-475209** : Allez directement sur https://console.developers.google.com/apis/api/sheets.googleapis.com/overview?project=699915088023
-   - Attendez quelques minutes pour que l'activation soit prise en compte
-4. Créez un compte de service :
-   - Allez dans "IAM et administration" > "Comptes de service"
-   - Cliquez sur "Créer un compte de service"
-   - Donnez un nom à votre compte de service et une description
-   - Accordez au compte de service le rôle "Éditeur" (ou un rôle personnalisé avec des permissions de lecture/écriture)
-   - Cliquez sur "Continuer" puis "Terminé"
-5. Créez une clé pour votre compte de service :
-   - Dans la liste des comptes de service, cliquez sur le compte que vous venez de créer
-   - Allez dans l'onglet "Clés"
-   - Cliquez sur "Ajouter une clé" > "Créer une clé"
-   - Sélectionnez "JSON" comme type de clé
-   - Une clé sera téléchargée sur votre ordinateur
-
-6. Renommez le fichier téléchargé en `service_account.json` et placez-le à la racine du projet
-
-⚠️ **Note importante pour résoudre les erreurs courantes** ⚠️
-- Si vous recevez une erreur indiquant que "L'API Google Sheets n'est pas activée", assurez-vous d'avoir bien suivi l'étape 3 ci-dessus.
-- Vérifiez que le nom du fichier est exactement `service_account.json` (sans fautes d'orthographe).
-
-### 2. Configuration de la feuille Google Sheets
-
-1. Accédez à la [feuille Google Sheets](https://docs.google.com/spreadsheets/d/1MSGo1flz_yyGKcJ0EQdnx4Qe92ciNu9gXMu9EYp6OH4/edit?usp=sharing)
-2. Assurez-vous que la feuille contient les colonnes suivantes :
-   - `Nom`
-   - `Prénom` 
-   - `Année`
-   - `Surnom du tueur`
-   - `Mot de passe`
-   - `Surnom de sa cible`
-   - `Action à réaliser`
-   - `État` (cette colonne sera ajoutée automatiquement au premier démarrage de l'application)
-   - `Kills` (ajoutée automatiquement si elle n'existe pas, utilisée pour le leaderboard)
-   
-3. Partagez votre feuille avec l'adresse email du compte de service :
-   - Ouvrez votre feuille Google Sheets
-   - Cliquez sur le bouton "Partager" en haut à droite
-   - Ajoutez l'adresse email de votre compte de service (elle se trouve dans le fichier `service_account.json`, recherchez le champ `client_email`)
-   - Accordez-lui les droits d'édition (rôle "Éditeur")
-   - Désactivez la notification
-   - Cliquez sur "Partager"
-
-### 3. Configuration des variables d'environnement
-
-Créez un fichier `.env` à la racine du projet avec les informations suivantes :
-
-```
-FLASK_SECRET_KEY=une_clé_secrète_longue_et_aléatoire
-SERVICE_ACCOUNT_FILE=service_account.json
-SHEET_ID=1ZIiFg_BA7fgpMJfb_s-BmOs_idm3Px_2zWqJ3DLh-dY
-GOOGLE_REQUEST_TIMEOUT=15
-SHEET_CACHE_TTL=60
-```
-
-Remplacez `une_clé_secrète_longue_et_aléatoire` par une chaîne de caractères aléatoire. Vous pouvez en générer une avec Python :
-
-```python
-import secrets
-print(secrets.token_hex(16))
-```
-
-## Utilisation
-
-### 1. Préparation de la feuille de données
-
-1. Remplissez la feuille Google Sheets avec les informations des joueurs
-2. Assurez-vous que chaque joueur possède :
-   - Un nom et prénom
-   - Une année (classe, promotion, etc.)
-   - Un surnom unique (utilisé pour la connexion)
-   - Un mot de passe
-   - Le surnom de sa cible
-   - Une action à réaliser pour éliminer sa cible
-
-### 2. Utilisation de l'application
-
-1. Les joueurs se connectent avec leur surnom et mot de passe
-2. Une fois connecté, chaque joueur voit :
-   - Ses propres informations (nom, prénom, surnom, année)
-   - Les informations de sa cible actuelle (nom, prénom, surnom, année)
-   - L'action qu'il doit réaliser pour éliminer sa cible
-3. Lorsqu'un joueur élimine sa cible, il clique sur le bouton "J'ai tué ma cible"
-4. Le système attribue automatiquement la prochaine cible au joueur
-5. Le jeu continue jusqu'à ce qu'il ne reste plus qu'un joueur vivant
-
-Une section "Leaderboard des tueurs" résume automatiquement qui a réalisé le plus d'éliminations et indique l'état (vivant, mort, abandonné, admin) de chaque joueur. En cas d'égalité sur le nombre de kills, l'ordre est alphabétique. Un point de kill n'est comptabilisé qu'au moment où la victime confirme elle-même son élimination via l'interface (bouton « Je suis mort »). Les entrées marquées `admin` affichent également la cible actuelle et l'action à réaliser pour aider au suivi.
-
-Lorsque vous êtes connecté en tant qu'admin (colonne `État` renseignée avec `admin` dans la Google Sheet), une section supplémentaire affiche la cible et l'action de tous les joueurs (ainsi que les valeurs initiales) afin de pouvoir suivre l'ensemble de la partie en temps réel. Cliquez sur les en-têtes « Joueur », « Cible actuelle » ou « Cible initiale » pour trier le tableau par ordre alphabétique (un second clic inverse le sens du tri).
-
-### 3. Variables d'environnement Gunicorn utiles
-
-- `PORT` : port HTTP d'écoute (par défaut `5000`)
-- `HOST` : adresse IP d'écoute (par défaut `0.0.0.0`)
-- `GUNICORN_WORKERS` : nombre de workers (par défaut `2 * CPU + 1`)
-- `GUNICORN_TIMEOUT` : délai avant arrêt d'un worker bloqué (par défaut `60` secondes)
-- `GUNICORN_KEEPALIVE` : durée des connexions keep-alive (par défaut `5` secondes)
-- `GUNICORN_ACCESS_LOG` / `GUNICORN_ERROR_LOG` : chemins de log (par défaut sortie standard)
-- `GUNICORN_LOGLEVEL` : niveau de log (`info`, `debug`, etc.)
-
-### 4. Exécution permanente avec systemd
-
-Pour garder le serveur actif en arrière-plan sur un serveur Linux, vous pouvez utiliser le service systemd fourni (`killer.service`). Les commandes suivantes supposent que le projet est déployé dans `/var/www/killer` et qu'un environnement virtuel `.venv` y est présent.
+4. Créez un fichier `.env` dans le dossier `email/` :
 
 ```bash
-git log --oneline --decorate --left-right --cherry origin/backup-main...HEAD
-
-sudo cp /var/www/killer/killer.service /etc/systemd/system/killer.service
-sudo systemctl daemon-reload
-sudo systemctl enable killer.service
-sudo systemctl restart killer.service
-sudo systemctl status killer.service
-sudo systemctl stop killer.service
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=killer.weu56@gmail.com
+SMTP_PASSWORD=xxxxxxxxxxxxxxxx  # Mot de passe d'application
+FROM_NAME=Killer WEU56
+FROM_EMAIL=killer.weu56@gmail.com
 ```
 
-Pour tuer un port
-```bash
-
-sudo lsof -i :5000
-sudo ss -ltnp | grep :5000
-sudo kill -9 PID
-sudo ss -ltnp | grep :8080
-
-
-```
-
-Surveillez ensuite les journaux spécifiques à l'application :
+#### Avec Outlook / Hotmail
 
 ```bash
-sudo tail -f /var/log/killer.log /var/log/killer.error.log
+SMTP_SERVER=smtp-mail.outlook.com
+SMTP_PORT=587
+SMTP_USER=votre.email@outlook.com
+SMTP_PASSWORD=votre_mot_de_passe
+FROM_NAME=Killer WEU56
+FROM_EMAIL=votre.email@outlook.com
 ```
 
-Pour vérifier que l'application répond correctement depuis la machine, utilisez :
+### Format du CSV
+
+Le fichier `formulaire.csv` **doit** contenir ces colonnes :
+
+| Colonne | Description | Exemple |
+|---------|-------------|---------|
+| `Surnom (le VRAI, pour pouvoir vous identifier)` | Identifiant du joueur | user1 |
+| `Votre mot de passe (vous devrez vous en SOUVENIR pour jouer, même en BO)` | Mot de passe choisi | user1 |
+| `Adresse e-mail` | Adresse email (collectée automatiquement) | user1@gmail.com |
+
+**⚠️ ATTENTION** : La colonne `Adresse e-mail` est créée automatiquement par Google Forms **seulement si** vous avez activé "Collecter les adresses e-mail" dans les paramètres !
+
+### Utilisation du script
 
 ```bash
-curl -f http://127.0.0.1:5000/health
+cd email
+python send_credentials.py \
+  --csv ../data/formulaire.csv \
+  --rate 1.0 \
+  --login-url "http://188.137.182.53:8080/"
 ```
 
-Adapter les chemins et ports si votre installation diffère.
+Le script charge automatiquement les variables d'environnement depuis le fichier `.env` à la racine du projet.
 
-## Tests Manuels
+### Options du script
 
-Voici quelques scénarios de test pour vérifier le bon fonctionnement de l'application :
+| Option | Description | Par défaut |
+|--------|-------------|-----------|
+| `--csv` | Chemin du fichier CSV | (obligatoire) |
+| `--rate` | Délai entre chaque email (secondes) | 1.0 |
+| `--login-url` | URL de connexion au jeu | (vide) |
+| `--dry-run` | Tester sans envoyer les emails | Non activé |
+| `--subject` | Objet de l'email | "Rappel pour le killer idf/mdp" |
 
-### Test 1: Authentification
-1. Ouvrez l'application dans votre navigateur
-2. Entrez un surnom et un mot de passe valides
-3. Vérifiez que vous êtes redirigé vers la page principale avec les informations de votre profil et de votre cible
+### Test avant envoi
 
-### Test 2: Processus de kill
-1. Connectez-vous avec deux comptes différents (dans deux navigateurs ou en mode navigation privée)
-2. Avec le compte du "tueur", notez les informations de la cible
-3. Cliquez sur le bouton "J'ai tué ma cible"
-4. Vérifiez que vous recevez la prochaine cible
-5. Connectez-vous avec le compte de la "victime" et vérifiez qu'il ne peut plus se connecter ou qu'il est marqué comme "mort"
+```bash
+# Mode test (n'envoie pas les emails)
+python send_credentials.py \
+  --csv ../data/formulaire.csv \
+  --dry-run
+```
 
-### Test 3: Chaîne de cibles
-1. Configurez une chaîne de 3 joueurs où A cible B, B cible C, et C cible A
-2. Connectez-vous en tant que A et éliminez B
-3. Vérifiez qu'A obtient maintenant C comme cible
-4. Éliminez C et vérifiez que le jeu détecte la fin de partie (aucune cible vivante)
+Vérifiez que :
+- ✅ Tous les emails sont détectés
+- ✅ Les surnoms sont corrects
+- ✅ Les mots de passe sont présents
 
-## Limitations connues et recommandations
+### Logs d'envoi
 
-### Sécurité
-- **Mots de passe en clair**: Dans cette implémentation, les mots de passe sont stockés en clair dans la feuille Google Sheets, ce qui n'est pas recommandé pour un environnement de production.
-  - **Recommandation**: Migrer vers un système utilisant des hashes. Pour ce faire, ajoutez une colonne pour stocker des hashes bcrypt et modifiez la logique d'authentification dans le serveur.
+Le script génère un fichier `sent_log.csv` :
 
-### Concurrence
-- **Risques de race conditions**: Si plusieurs joueurs tentent de tuer des cibles en même temps, des incohérences peuvent survenir car l'API Google Sheets n'offre pas de transactions atomiques.
-  - **Recommandation**: Implémentez un système de verrouillage simple en ajoutant une colonne "locked" dans la feuille, ou utilisez Google Apps Script pour gérer la concurrence.
+```csv
+identifiant,email,status,error,timestamp
+Astro,astro@example.com,sent,,1698765432.123
+Nyhllo,nyhllo@example.com,error,Authentication failed,1698765433.456
+```
 
-### Performance
-- **Limitations de l'API Google Sheets**: Les requêtes Google Sheets API sont limitées en fréquence et peuvent être lentes sous charge.
-  - **Recommandation**: Pour une utilisation intensive, migrez vers une base de données dédiée (SQLite, PostgreSQL, etc.).
+### Conseils
 
-### Autres recommandations
-- Ajouter un système de logs pour suivre les actions (qui a tué qui et quand)
-- Implémenter une vue administrateur pour gérer les joueurs et résoudre les problèmes
-- Ajouter un système de notifications (email, SMS) pour informer les joueurs des changements
+- 🕐 **Envoyez les emails 1-2 heures avant le début du jeu** (pas trop tôt)
+- 📱 Testez d'abord sur **votre propre email**
+- 🔄 Si un envoi échoue, vous pouvez **relancer le script** (les emails déjà envoyés seront enregistrés)
+- 📊 Vérifiez le taux de réussite dans `sent_log.csv`
 
-### Récentes améliorations
-- Adaptation à la nouvelle structure de colonnes Google Sheet
-- Résolution du problème d'affichage des photos (utilisation de l'API thumbnail de Google Drive)
-- Connexion rendue insensible à la casse
-- Désactivation visuelle des boutons "Je suis mort" et "J'abandonne" pour les joueurs déjà morts
-- Style visuel amélioré pour distinguer les joueurs morts ou ayant abandonné
+---
 
-## Remarques techniques
+## 6. 🧪 Test en local
 
-### Structure de la colonne "État"
-L'application ajoute automatiquement une colonne "État" à la feuille Google Sheets si elle n'existe pas déjà. Cette colonne contient l'une des valeurs suivantes:
-- `alive` : le joueur est toujours en vie et participe au jeu
-- `dead` : le joueur a été éliminé
+### Installation
 
-### Logique de transfert de cible
-Lorsqu'un joueur élimine sa cible, le système:
-1. Récupère la cible actuelle de la victime (qui devient la nouvelle cible du tueur)
-2. Si cette nouvelle cible est déjà morte, il cherche récursivement la prochaine cible vivante
-3. Si aucune cible vivante n'est trouvée, le joueur n'a plus de cible, ce qui indique la fin du jeu
+```bash
+# Cloner le projet
+git clone [votre-repo]
+cd killer
 
-### Endpoint de débogage
-L'application inclut un endpoint de débogage (`/api/debug`) qui affiche l'état complet de la feuille. Il est accessible uniquement pour les utilisateurs connectés, mais devrait être désactivé ou protégé par une authentification supplémentaire en production.
+# Créer un environnement virtuel
+python3 -m venv venv
+source venv/bin/activate  # Sur Windows: venv\Scripts\activate
+
+# Installer les dépendances
+pip install -r requirements.txt
+```
+
+### Configuration
+
+Créez un fichier `.env` à la racine :
+
+```bash
+FLASK_SECRET_KEY=votre_secret_key_aleatoire
+FLASK_DEBUG=True
+PORT=8080
+```
+
+### Lancement
+
+```bash
+python server.py
+```
+
+L'application sera accessible sur : **http://localhost:8080**
+
+### Tests à effectuer
+
+1. ✅ Page de connexion s'affiche correctement
+2. ✅ Connexion avec un compte joueur (surnom + mot de passe)
+3. ✅ Les photos des joueurs s'affichent
+4. ✅ La cible est affichée avec son défi
+5. ✅ Le formulaire de kill fonctionne
+6. ✅ Les admins peuvent valider/refuser les kills
+7. ✅ Le classement s'affiche correctement
+
+### Logs de débogage
+
+```bash
+# Voir les requêtes HTTP
+tail -f server.log
+
+# En mode debug, les erreurs s'affichent directement dans le navigateur
+```
+
+---
+
+## 7. 🚀 Déploiement sur serveur Zomro
+
+### Pourquoi Zomro ?
+
+- 💰 Prix abordables (à de 0.016 centimes / heures)
+- 🌍 Serveurs en Europe (faible latence)
+- 🛠️ Accès root complet
+- 📈 Ressources garanties
+
+### Choix du serveur
+
+#### Configuration minimale (50-100 joueurs)
+
+- **RAM** : 2 GB
+- **CPU** : 2 cœurs
+- **Stockage** : 20 GB SSD
+- **Bande passante** : 1 TB/mois
+- **Prix** : ~8-10€/mois
+
+### Achat et configuration du serveur
+
+1. **Créer un compte sur Zomro** : https://zomro.com
+2. **Commander un VPS** :
+   - Choisissez **Ubuntu 22.04 LTS** (recommandé)
+   - Sélectionnez la configuration souhaitée
+   - Notez votre **adresse IP** et **mot de passe root**
+
+3. **Configurer l'accès SSH** :
+
+```bash
+# Tester la connexion
+ssh root@VOTRE_IP
+
+# (Recommandé) Configurer une clé SSH pour éviter le mot de passe
+ssh-keygen -t rsa -b 4096
+ssh-copy-id root@VOTRE_IP
+```
+
+4. **Installer les dépendances sur le serveur** :
+
+```bash
+ssh root@VOTRE_IP
+
+# Mise à jour du système
+apt update && apt upgrade -y
+
+# Installation de Python et outils
+apt install -y python3 python3-venv python3-pip git curl
+
+# Installation de systemd (si pas déjà installé)
+apt install -y systemd
+```
+
+### Déploiement initial
+
+1. **Modifier l'IP dans le script** :
+
+Éditez `deploy_initial.sh` :
+
+```bash
+ZOMRO_IP="VOTRE_IP_ICI"  # Remplacez par votre IP Zomro
+```
+
+2. **Rendre le script exécutable** :
+
+```bash
+chmod +x deploy_initial.sh
+```
+
+3. **Lancer le déploiement** :
+
+```bash
+./deploy_initial.sh
+```
+
+Le script va :
+- ✅ Copier tous les fichiers (code + CSV + images)
+- ✅ Installer Python et les dépendances
+- ✅ Créer un service systemd
+- ✅ Démarrer l'application
+- ✅ Configurer le redémarrage automatique
+
+⏱️ **Durée estimée** : 5-10 minutes (selon la taille des photos)
+
+### Vérification du déploiement
+
+```bash
+# Vérifier que le service tourne
+ssh root@VOTRE_IP 'systemctl status killer'
+
+# Voir les logs en temps réel
+ssh root@VOTRE_IP 'tail -f /var/log/killer.log'
+
+# Tester l'accès
+curl http://VOTRE_IP:8080/health
+```
+
+Si tout fonctionne, vous verrez :
+```json
+{"status": "ok"}
+```
+
+### Accès à l'application
+
+L'application sera accessible sur : **http://VOTRE_IP:8080**
+
+Partagez ce lien aux joueurs !
+
+### Mises à jour rapides
+
+Pour les modifications de code (sans changer les photos) :
+
+```bash
+./deploy_update.sh
+```
+
+⏱️ **Durée** : 30 secondes seulement !
+
+### Commandes utiles
+
+```bash
+# Redémarrer l'application
+ssh root@VOTRE_IP 'systemctl restart killer'
+
+# Arrêter l'application
+ssh root@VOTRE_IP 'systemctl stop killer'
+
+# Voir les logs d'erreur
+ssh root@VOTRE_IP 'tail -50 /var/log/killer.error.log'
+
+# Vérifier l'espace disque
+ssh root@VOTRE_IP 'df -h'
+
+# Vérifier la RAM utilisée
+ssh root@VOTRE_IP 'free -h'
+```
+
+### Résolution de problèmes
+
+#### L'application ne démarre pas
+
+```bash
+# Vérifier les logs détaillés
+ssh root@VOTRE_IP 'journalctl -u killer -n 100'
+
+# Vérifier les permissions
+ssh root@VOTRE_IP 'ls -la /var/www/killer'
+
+# Tester manuellement
+ssh root@VOTRE_IP
+cd /var/www/killer
+source .venv/bin/activate
+python server.py
+```
+
+#### Les photos ne s'affichent pas
+
+```bash
+# Vérifier que les photos sont présentes
+ssh root@VOTRE_IP 'ls -la /var/www/killer/data/images/tetes/'
+
+# Vérifier les permissions
+ssh root@VOTRE_IP 'chmod -R 755 /var/www/killer/data/images/'
+```
+
+#### Erreur 502 Bad Gateway
+
+```bash
+# Le service n'est pas démarré
+ssh root@VOTRE_IP 'systemctl start killer'
+```
+
+---
+
+## 📞 Support
+
+Pour toute question ou problème :
+
+1. 📖 Consultez ce README
+2. 🔍 Vérifiez les logs : `/var/log/killer.log`
+3. 💬 Contactez moi sur FB : Charles Bergeat (Nyhllö)
+
+---
+
+## 🎉 Bon jeu !
+
+Une fois tout configuré :
+
+1. ✅ Les joueurs reçoivent leurs identifiants par email
+2. ✅ Ils se connectent sur l'application
+3. ✅ Ils découvrent leur cible et leur défi
+4. ✅ Le jeu commence !
+
+**Amusez-vous bien et que le meilleur killer gagne ! 🔪🎯**
+
